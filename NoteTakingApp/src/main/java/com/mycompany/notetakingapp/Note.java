@@ -1,36 +1,19 @@
 package com.mycompany.notetakingapp;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.Serializable;
+import java.util.Objects;
 
-public class Note {
-    // Data
+public class Note implements Serializable {
     private String title;
     private String content;
-    private List<Image> images;
-    private List<Sketch> sketches;
+    private String imagePath;
+    private String sketchPath;
 
-    // Constructor
-    public Note(String title, String content) {
+    public Note(String title, String content, String imagePath, String sketchPath) {
         this.title = title;
         this.content = content;
-        this.images = new ArrayList<>();
-        this.sketches = new ArrayList<>();
-    }
-
-    // Add new image
-    public void addImage(Image image) {
-        images.add(image);
-    }
-
-    // Add new sketch
-    public void addSketch(Sketch sketch) {
-        sketches.add(sketch);
-    }
-
-    // Update content
-    public void updateContent(String content) {
-        this.content = content;
+        this.imagePath = imagePath;
+        this.sketchPath = sketchPath;
     }
 
     // Getters
@@ -42,23 +25,47 @@ public class Note {
         return content;
     }
 
-    public List<Image> getImages() {
-        return images;
+    public String getImagePath() {
+        return imagePath;
     }
 
-    public List<Sketch> getSketches() {
-        return sketches;
+    public String getSketchPath() {
+        return sketchPath;
     }
 
-    // Remove image
-    public void removeImage(Image image) {
-        images.remove(image);
+    // Setters
+    public void setTitle(String title) {
+        this.title = title;
     }
 
-    // Remove sketch
-    public void removeSketch(Sketch sketch) {
-        sketches.remove(sketch);
+    public void setContent(String content) {
+        this.content = content;
     }
 
-  
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
+    }
+
+    public void setSketchPath(String sketchPath) {
+        this.sketchPath = sketchPath;
+    }
+
+    // Override equals and hashCode to ensure proper comparison and functionality in lists
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Note note = (Note) obj;
+        return Objects.equals(title, note.title) &&
+                Objects.equals(content, note.content) &&
+                Objects.equals(imagePath, note.imagePath) &&
+                Objects.equals(sketchPath, note.sketchPath);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(title, content, imagePath, sketchPath);
+    }
+
+    
 }

@@ -1,0 +1,16 @@
+Title: newNote
+Content: content this is note
+Image Path: D:\profile.jpg
+Sketch Path: sketchFilePath
+---- End of Note ----
+Title: new note
+Content: youssef
+Image Path: D:\profile.jpg
+Sketch Path: null
+---- End of Note ----
+Title: secure
+Content: content
+Image Path: D:\profile.jpg
+Sketch Path: D:\profile.jpg
+Password: 1234
+---- End of Note ----

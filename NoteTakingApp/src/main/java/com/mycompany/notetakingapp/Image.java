@@ -1,35 +1,17 @@
 package com.mycompany.notetakingapp;
 
-import java.io.File;
+import javax.swing.ImageIcon;
 
 public class Image {
-    // Data
-    private String filePath;
-    private String description;
-    
-    // Constructor
-    public Image(String filePath, String description) {
-        this.filePath = filePath;
-        this.description = description;
-    }
-    
-    // Getters
-    public String getFilePath() {
-        return filePath;
+    private String path;
+    private ImageIcon imageIcon;
+
+    public Image(String path) {
+        this.path = path;
+        this.imageIcon = new ImageIcon(path);
     }
 
-    public String getDescription() {
-        return description;
+    public java.awt.Image getImage() {  // Fully qualified class name
+        return imageIcon.getImage();
     }
-    
-    // Method to load image from a given file path
-    public void loadImage(String filePath) {
-        File file = new File(filePath);
-        if (!file.exists()) {
-            throw new IllegalArgumentException("Image file not found: " + filePath);
-        }
-        this.filePath = filePath;
-    }
-    
-   
 }

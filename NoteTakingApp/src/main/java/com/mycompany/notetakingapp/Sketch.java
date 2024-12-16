@@ -1,28 +1,14 @@
 package com.mycompany.notetakingapp;
 
-import java.io.File;
-import java.io.IOException;
+import java.awt.Graphics;
+import javax.swing.JPanel;
 
-public class Sketch {
-    // Data
-    private String filePath;
+public class Sketch extends JPanel {
 
-    // Constructor
-    public Sketch(String filePath) {
-        this.filePath = filePath;
-    }
-
-    // Getters
-    public String getFilePath() {
-        return filePath;
-    }
-
-    // Method to save sketch to a new file
-    public void saveSketch(String filePath) throws IOException {
-        File file = new File(filePath);
-        if (!file.createNewFile()) {
-            throw new IOException("Couldn't create sketch file at path: " + filePath);
-        }
-        this.filePath = filePath;
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        // Example of custom drawing
+        g.drawString("Note Sketch", 50, 50);
     }
 }

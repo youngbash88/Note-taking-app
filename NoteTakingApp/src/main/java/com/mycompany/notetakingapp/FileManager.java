@@ -5,97 +5,173 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FileManager {
-    private final String baseFolderPath;
 
-    public FileManager(String baseFolderPath) {
-        this.baseFolderPath = baseFolderPath;
-        createBaseFolder();
-    }
+    private static final String NOTE_FILE = "notes.txt";  // Store notes in a readable text file (not .ser)
 
-    // Ensure the base folder exists
-    private void createBaseFolder() {
-        File baseFolder = new File(baseFolderPath);
-        if (!baseFolder.exists()) {
-            baseFolder.mkdirs();
+    // Save a note to the user's file in a human-readable format
+    public static void saveNoteToFile(Note note, String username) {
+        try {
+            // Define the file path for each user, with their specific username
+            File file = new File(username + "_" + NOTE_FILE);
+            // Create a BufferedWriter to write to the file
+            BufferedWriter writer = new BufferedWriter(new FileWriter(file, true)); // 'true' for appending
+
+            // Write the note details in a readable format
+            writer.write("Title: " + note.getTitle());
+            writer.newLine();
+            writer.write("Content: " + note.getContent());
+            writer.newLine();
+            writer.write("Image Path: " + note.getImagePath());
+            writer.newLine();
+            writer.write("Sketch Path: " + note.getSketchPath());
+            writer.newLine();
+
+            // If it's a SecureNote, include the password
+            if (note instanceof SecureNote) {
+                SecureNote secureNote = (SecureNote) note;
+                writer.write("Password: " + secureNote.getPassword());
+                writer.newLine();
+            }
+
+            // Add a separator to clearly mark the end of the note
+            writer.write("---- End of Note ----");
+            writer.newLine();
+
+            // Close the BufferedWriter to save the data
+            writer.close();
+
+        } catch (IOException e) {
+            e.printStackTrace(); // Handle IOExceptions during writing to file
         }
     }
 
-    // Save a note to a user's folder
-    public void saveNote(Note note, User user) throws IOException {
-        String userFolderPath = baseFolderPath + "/" + user.getUsername();
-        File userFolder = new File(userFolderPath);
-
-        if (!userFolder.exists()) {
-            userFolder.mkdirs();
-        }
-
-        // Save the note as a serialized object or JSON
-        String noteFilePath = userFolderPath + "/" + note.getTitle() + ".note";
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(noteFilePath))) {
-            oos.writeObject(note);
-        }
+    // Load notes from a text file as plain text lines (return a List of Strings)
+   // Load notes from a text file and return a list of Note objects
+public static List<Note> loadNotesFromFile(String username) {
+    File file = new File(username + "_" + NOTE_FILE);  // File path based on username
+    List<Note> notes = new ArrayList<>();
+    
+    if (!file.exists()) {
+        return notes;  // Return an empty list if the file doesn't exist
     }
 
-    // Load all notes for a user
-    public List<Note> loadNotes(User user) throws IOException, ClassNotFoundException {
-        String userFolderPath = baseFolderPath + "/" + user.getUsername();
-        File userFolder = new File(userFolderPath);
+    try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+        String line;
+        String title = null, content = null, imagePath = null, sketchPath = null, password = null;
 
-        List<Note> notes = new ArrayList<>();
-        if (userFolder.exists() && userFolder.isDirectory()) {
-            for (File file : userFolder.listFiles()) {
-                if (file.getName().endsWith(".note")) {
-                    try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
-                        Note note = (Note) ois.readObject();
-                        notes.add(note);
-                    }
+        // Read each line from the file
+        while ((line = reader.readLine()) != null) {
+            // Parse the note's properties based on specific tags
+            if (line.startsWith("Title: ")) {
+                title = line.substring(7);  // Extract title
+            } else if (line.startsWith("Content: ")) {
+                content = line.substring(9);  // Extract content
+            } else if (line.startsWith("Image Path: ")) {
+                imagePath = line.substring(12);  // Extract image path
+            } else if (line.startsWith("Sketch Path: ")) {
+                sketchPath = line.substring(13);  // Extract sketch path
+            } else if (line.startsWith("Password: ")) {
+                password = line.substring(10);  // Extract password if present
+            } else if (line.equals("---- End of Note ----")) {
+                // Once a complete note is read, create a Note or SecureNote object
+                if (title != null && content != null && imagePath != null && sketchPath != null) {
+                    Note note = (password != null)
+                            ? new SecureNote(title, content, imagePath, sketchPath, password)
+                            : new Note(title, content, imagePath, sketchPath);
+                    notes.add(note);  // Add the note to the list
                 }
+                // Reset fields for the next note
+                title = content = imagePath = sketchPath = password = null;
             }
         }
-        return notes;
+    } catch (IOException e) {
+        e.printStackTrace();  // Handle IOExceptions
     }
+    return notes;  // Return the list of notes
+}
 
-    // Save an image file
-    public void saveImage(Image image, User user) throws IOException {
-        String userFolderPath = baseFolderPath + "/" + user.getUsername() + "/images";
-        File imageFolder = new File(userFolderPath);
 
-        if (!imageFolder.exists()) {
-            imageFolder.mkdirs();
-        }
-
-        File sourceFile = new File(image.getFilePath());
-        File destinationFile = new File(userFolderPath + "/" + sourceFile.getName());
-
-        try (InputStream in = new FileInputStream(sourceFile);
-             OutputStream out = new FileOutputStream(destinationFile)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = in.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
+    // Delete a note from the user's file (in the text format)
+   // Delete a note from the user's file (in the text format)
+public static void deleteNoteFromFile(Note note, String username) {
+    List<Note> notes = loadNotesFromFile(username);  // Now works with Note objects
+    try {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(username + "_" + NOTE_FILE));
+        for (Note currentNote : notes) {
+            // Skip writing the note to file if it's the one to be deleted
+            if (!currentNote.equals(note)) {
+                // Write the note details back to the file
+                writer.write("Title: " + currentNote.getTitle());
+                writer.newLine();
+                writer.write("Content: " + currentNote.getContent());
+                writer.newLine();
+                writer.write("Image Path: " + currentNote.getImagePath());
+                writer.newLine();
+                writer.write("Sketch Path: " + currentNote.getSketchPath());
+                writer.newLine();
+                if (currentNote instanceof SecureNote) {
+                    SecureNote secureNote = (SecureNote) currentNote;
+                    writer.write("Password: " + secureNote.getPassword());
+                    writer.newLine();
+                }
+                writer.write("---- End of Note ----");
+                writer.newLine();
             }
         }
+        writer.close();
+    } catch (IOException e) {
+        e.printStackTrace();  // Handle IOExceptions during deletion
     }
+}
 
-    // Save a sketch file
-    public void saveSketch(Sketch sketch, User user) throws IOException {
-        String userFolderPath = baseFolderPath + "/" + user.getUsername() + "/sketches";
-        File sketchFolder = new File(userFolderPath);
 
-        if (!sketchFolder.exists()) {
-            sketchFolder.mkdirs();
-        }
-
-        File sourceFile = new File(sketch.getFilePath());
-        File destinationFile = new File(userFolderPath + "/" + sourceFile.getName());
-
-        try (InputStream in = new FileInputStream(sourceFile);
-             OutputStream out = new FileOutputStream(destinationFile)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = in.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
+    // Update a note in the user's file (in the text format)
+   // Update a note in the user's file (in the text format)
+public static void updateNoteInFile(Note oldNote, Note newNote, String username) {
+    List<Note> notes = loadNotesFromFile(username);  // Now works with Note objects
+    try {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(username + "_" + NOTE_FILE));
+        for (Note currentNote : notes) {
+            if (currentNote.equals(oldNote)) {
+                // Update the note with the new details
+                writer.write("Title: " + newNote.getTitle());
+                writer.newLine();
+                writer.write("Content: " + newNote.getContent());
+                writer.newLine();
+                writer.write("Image Path: " + newNote.getImagePath());
+                writer.newLine();
+                writer.write("Sketch Path: " + newNote.getSketchPath());
+                writer.newLine();
+                if (newNote instanceof SecureNote) {
+                    SecureNote secureNote = (SecureNote) newNote;
+                    writer.write("Password: " + secureNote.getPassword());
+                    writer.newLine();
+                }
+                writer.write("---- End of Note ----");
+                writer.newLine();
+            } else {
+                // Write the existing note back without changes
+                writer.write("Title: " + currentNote.getTitle());
+                writer.newLine();
+                writer.write("Content: " + currentNote.getContent());
+                writer.newLine();
+                writer.write("Image Path: " + currentNote.getImagePath());
+                writer.newLine();
+                writer.write("Sketch Path: " + currentNote.getSketchPath());
+                writer.newLine();
+                if (currentNote instanceof SecureNote) {
+                    SecureNote secureNote = (SecureNote) currentNote;
+                    writer.write("Password: " + secureNote.getPassword());
+                    writer.newLine();
+                }
+                writer.write("---- End of Note ----");
+                writer.newLine();
             }
         }
+        writer.close();
+    } catch (IOException e) {
+        e.printStackTrace();  // Handle IOExceptions during updating
     }
+}
+
 }
