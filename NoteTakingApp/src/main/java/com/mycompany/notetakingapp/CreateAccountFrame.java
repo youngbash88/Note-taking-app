@@ -2,7 +2,7 @@ package com.mycompany.notetakingapp;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
 
 public class CreateAccountFrame extends JFrame {
     private JTextField usernameField;
@@ -13,7 +13,7 @@ public class CreateAccountFrame extends JFrame {
     public CreateAccountFrame() {
         setTitle("Create New Account");
         setSize(300, 250);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); // Close this frame without exiting the application
         setLocationRelativeTo(null);
 
         // Create input fields and buttons
@@ -23,32 +23,29 @@ public class CreateAccountFrame extends JFrame {
         statusLabel = new JLabel();
 
         // Create Account Button Action
-        createAccountButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String username = usernameField.getText();
-                String password = new String(passwordField.getPassword());
+        createAccountButton.addActionListener((ActionEvent e) -> {
+            String username = usernameField.getText();
+            String password = new String(passwordField.getPassword());
 
-                // Validate inputs
-                if (username.isEmpty() || password.isEmpty()) {
-                    statusLabel.setText("Please fill in both fields.");
-                    statusLabel.setForeground(Color.RED);
-                    return;
-                }
+            // Validate inputs
+            if (username.isEmpty() || password.isEmpty()) {
+                statusLabel.setText("Please fill in both fields.");
+                statusLabel.setForeground(Color.RED);
+                return;
+            }
 
-                // Hash the password before saving (you can use PasswordHash class)
-                String hashedPassword = PasswordHash.hashPassword(password);
+            // Hash the password before saving (you can use PasswordHash class)
+            String hashedPassword = PasswordHash.hashPassword(password);
 
-                // Create a new user and try to save it
-                User newUser = new User(username, hashedPassword);
-                boolean success = FileManager.saveUserToFile(newUser);
+            // Create a new user and try to save it
+            User newUser = new User(username, hashedPassword);
+            boolean success = FileManager.saveUserToFile(newUser);
 
-                if (success) {
-                    JOptionPane.showMessageDialog(null, "Account Created Successfully");
-                    dispose();  // Close the create account frame
-                } else {
-                    JOptionPane.showMessageDialog(null, "Username already exists");
-                }
+            if (success) {
+                JOptionPane.showMessageDialog(null, "Account Created Successfully");
+                dispose();  // Close the create account frame
+            } else {
+                JOptionPane.showMessageDialog(null, "Username already exists");
             }
         });
 
@@ -67,9 +64,5 @@ public class CreateAccountFrame extends JFrame {
 
         // Adjust frame size to fit content
         pack();
-    }
-
-    public static void main(String[] args) {
-        new CreateAccountFrame().setVisible(true);  // Launch the frame
     }
 }
