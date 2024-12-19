@@ -51,21 +51,23 @@ public class Note implements Serializable {
     }
 
     // Override equals and hashCode to ensure proper comparison and functionality in lists
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        Note note = (Note) obj;
-        return Objects.equals(title, note.title) &&
-                Objects.equals(content, note.content) &&
-                Objects.equals(imagePath, note.imagePath) &&
-                Objects.equals(sketchPath, note.sketchPath);
-    }
+  @Override
+public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(title, content, imagePath, sketchPath);
-    }
+    Note note = (Note) obj;
+    return title.equals(note.title) &&
+           content.equals(note.content) &&
+           Objects.equals(imagePath, note.imagePath) &&
+           Objects.equals(sketchPath, note.sketchPath);
+}
+
+@Override
+public int hashCode() {
+    return Objects.hash(title, content, imagePath, sketchPath);
+}
+
 
     
 }
