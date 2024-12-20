@@ -3,6 +3,8 @@ package com.mycompany.notetakingapp;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.List;
+
 import java.io.File;
 
 public class EditNoteFrame extends JFrame {
@@ -31,7 +33,7 @@ public class EditNoteFrame extends JFrame {
         // Initialize UI elements with existing note details
         titleField = new JTextField(note.getTitle(), 20);
         contentArea = new JTextArea(note.getContent(), 5, 20);
-        imageLabel = new JLabel("Current Image: " + (note.getImagePath() != null ? note.getImagePath() : "None"));
+        imageLabel = new JLabel("Current Image: " + (note.getImagePaths() != null ? note.getImagePaths() : "None"));
         imageButton = new JButton("Change Image");
         sketchLabel = new JLabel("Current Sketch: " + (note.getSketchPath() != null ? note.getSketchPath() : "None"));
         sketchButton = new JButton("Change Sketch");
@@ -69,11 +71,11 @@ public class EditNoteFrame extends JFrame {
             }
 
             // Copy old image and sketch paths if not updated
-            String updatedImagePath = selectedImage != null ? selectedImage.getAbsolutePath() : note.getImagePath();
+            var updatedImagePath = selectedImage != null ? selectedImage.getAbsolutePath() : note.getImagePaths();
             String updatedSketchPath = selectedSketch != null ? selectedSketch.getAbsolutePath() : note.getSketchPath();
 
             // Create a new updated note
-            Note updatedNote = new Note(newTitle, newContent, updatedImagePath, updatedSketchPath);
+            Note updatedNote = new Note(newTitle, newContent, (List<String>) updatedImagePath, updatedSketchPath);
 
             // Save the updated note
             boolean success = FileManager.updateNoteInFile(note, updatedNote, username);

@@ -10,9 +10,10 @@ public class ViewNotesFrame extends JFrame {
     private String username;
     private JList<String> notesList;
     private DefaultListModel<String> notesListModel;
-    private JTextArea noteContentArea;
-    private JLabel imageLabel, sketchLabel;
-    private JButton editButton, deleteButton;  // Added delete button
+    private JEditorPane noteContentArea; // Changed to JEditorPane for editing
+    private JList<ImageIcon> imagesList; // Changed to a JList for images
+    private DefaultListModel<ImageIcon> imagesListModel;
+    private JButton editButton, deleteButton;
 
     public ViewNotesFrame(List<Note> notes, String username) {
         this.notes = notes;
@@ -23,7 +24,7 @@ public class ViewNotesFrame extends JFrame {
         setTitle(username);
         setSize(1000, 600);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        getContentPane().setBackground(new Color(80,130,180));
+        getContentPane().setBackground(new Color(80, 130, 180));
         setLocationRelativeTo(null);
 
         // Notes list
@@ -42,21 +43,18 @@ public class ViewNotesFrame extends JFrame {
         leftPanel.add(new JScrollPane(notesList), BorderLayout.CENTER);
         leftPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // Note content, image, and sketch
-        noteContentArea = new JTextArea(10, 40);
-        noteContentArea.setEditable(false);
-        noteContentArea.setLineWrap(true);
-        noteContentArea.setWrapStyleWord(true);
+        // Note content editor and images list
+        noteContentArea = new JEditorPane(); // Editable text area
+        noteContentArea.setEditable(true);
 
-        imageLabel = new JLabel();
-        imageLabel.setHorizontalAlignment(JLabel.CENTER);
-        imageLabel.setVerticalAlignment(JLabel.CENTER);
-        imageLabel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+        imagesListModel = new DefaultListModel<>();
+        imagesList = new JList<>(imagesListModel);
+        imagesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        imagesList.setVisibleRowCount(4); // Limit visible rows
+        imagesList.setLayoutOrientation(JList.VERTICAL);
 
-        sketchLabel = new JLabel();
-        sketchLabel.setHorizontalAlignment(JLabel.CENTER);
-        sketchLabel.setVerticalAlignment(JLabel.CENTER);
-        sketchLabel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+        JScrollPane imagesScrollPane = new JScrollPane(imagesList);
+        imagesScrollPane.setBorder(BorderFactory.createTitledBorder("Attached Images"));
 
         // Edit Button
         editButton = new JButton("Edit Note");
@@ -70,21 +68,18 @@ public class ViewNotesFrame extends JFrame {
             deleteNote();
         });
 
-        // Right Panel with 50/50 split for Edit and Delete buttons
-        JPanel rightPanel = new JPanel(new GridLayout(2, 1, 10, 10));  // Split into 2 rows
-        JPanel contentPanel = new JPanel(new GridLayout(1, 2, 10, 10));  // Content and images side by side
-        contentPanel.add(new JScrollPane(noteContentArea));
-        contentPanel.add(new JScrollPane(imageLabel));
-        contentPanel.add(new JScrollPane(sketchLabel));
+        // Right Panel
+        JPanel rightPanel = new JPanel(new BorderLayout(10, 10));
+        rightPanel.add(new JScrollPane(noteContentArea), BorderLayout.CENTER);
+        rightPanel.add(imagesScrollPane, BorderLayout.SOUTH);
 
-        rightPanel.add(contentPanel);  // First half for content
-        JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 10, 10));  // Buttons in separate columns
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         buttonPanel.add(editButton);
         buttonPanel.add(deleteButton);
-        rightPanel.add(buttonPanel);  // Second half for buttons
 
         // Add panels to the frame
         add(new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel), BorderLayout.CENTER);
+        add(buttonPanel, BorderLayout.SOUTH);
     }
 
     private void displayNoteContent(String selectedTitle) {
@@ -92,20 +87,15 @@ public class ViewNotesFrame extends JFrame {
             if (note.getTitle().equals(selectedTitle)) {
                 noteContentArea.setText(note.getContent());
 
-                if (note.getImagePath() != null && !note.getImagePath().isEmpty()) {
-                    imageLabel.setIcon(new ImageIcon(note.getImagePath()));
-                    imageLabel.setText("");
-                } else {
-                    imageLabel.setIcon(null);
-                    imageLabel.setText("No image available.");
-                }
-
-                if (note.getSketchPath() != null && !note.getSketchPath().isEmpty()) {
-                    sketchLabel.setIcon(new ImageIcon(note.getSketchPath()));
-                    sketchLabel.setText("");
-                } else {
-                    sketchLabel.setIcon(null);
-                    sketchLabel.setText("No sketch available.");
+                // Update images list
+                imagesListModel.clear();
+                if (note.getImagePaths() != null && !note.getImagePaths().isEmpty()) {
+                    for (String imagePath : note.getImagePaths()) {
+                        File imgFile = new File(imagePath);
+                        if (imgFile.exists()) {
+                            imagesListModel.addElement(new ImageIcon(imagePath));
+                        }
+                    }
                 }
                 break;
             }
@@ -128,51 +118,25 @@ public class ViewNotesFrame extends JFrame {
             }
         }
 
-        // Show a dialog for editing the note's title and content
-        String newTitle = JOptionPane.showInputDialog(this, "Edit Title:", oldNote.getTitle());
-        if (newTitle == null || newTitle.isEmpty()) return;  // If user cancels or enters nothing, do nothing
+        // Allow user to edit the note content directly
+        String newContent = noteContentArea.getText();
 
-        String newContent = JOptionPane.showInputDialog(this, "Edit Content:", oldNote.getContent());
-        if (newContent == null) return;  // If user cancels, do nothing
-
-        // Allow user to choose a new image and sketch
+        // Allow user to update images
         JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Select Image");
+        fileChooser.setDialogTitle("Add Image");
         fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-        String newImagePath = oldNote.getImagePath();
-        String newSketchPath = oldNote.getSketchPath();
 
-        // Show file chooser for image
         int imageResult = fileChooser.showOpenDialog(this);
         if (imageResult == JFileChooser.APPROVE_OPTION) {
-            newImagePath = fileChooser.getSelectedFile().getAbsolutePath();
+            String newImagePath = fileChooser.getSelectedFile().getAbsolutePath();
+            oldNote.addImagePath(newImagePath);
         }
-
-        // Show file chooser for sketch
-        fileChooser.setDialogTitle("Select Sketch");
-        int sketchResult = fileChooser.showOpenDialog(this);
-        if (sketchResult == JFileChooser.APPROVE_OPTION) {
-            newSketchPath = fileChooser.getSelectedFile().getAbsolutePath();
-        }
-
-        // Create an updated Note with the new data
-        Note updatedNote = new Note(newTitle, newContent, newImagePath, newSketchPath);
 
         // Update the note in the file using FileManager
-        boolean success = FileManager.updateNoteInFile(oldNote, updatedNote, username);
+        boolean success = FileManager.updateNoteInFile(oldNote, oldNote, username);
         if (success) {
-            // Update the local list and UI
-            oldNote.setTitle(newTitle);
-            oldNote.setContent(newContent);
-            oldNote.setImagePath(newImagePath);
-            oldNote.setSketchPath(newSketchPath);
-
             // Refresh the display to show updated data
-            displayNoteContent(newTitle);
-
-            // Update the notes list UI with the new title
-            notesListModel.setElementAt(newTitle, notesList.getSelectedIndex());
-
+            displayNoteContent(selectedTitle);
             JOptionPane.showMessageDialog(this, "Note updated successfully.");
         } else {
             JOptionPane.showMessageDialog(this, "Error updating note.");
@@ -206,8 +170,7 @@ public class ViewNotesFrame extends JFrame {
                     notes.remove(noteToDelete);
                     notesListModel.removeElement(selectedTitle);
                     noteContentArea.setText("");
-                    imageLabel.setIcon(null);
-                    sketchLabel.setIcon(null);
+                    imagesListModel.clear();
 
                     JOptionPane.showMessageDialog(this, "Note deleted successfully.");
                 } else {
