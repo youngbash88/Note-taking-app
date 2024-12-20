@@ -18,9 +18,12 @@ public class ViewNotesFrame extends JFrame {
         this.notes = notes;
         this.username = username;
 
-        setTitle("View Notes - " + username);
-        setSize(600, 600);
+        ImageIcon im = new ImageIcon("notes.png");
+        setIconImage(im.getImage());
+        setTitle(username);
+        setSize(1000, 600);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        getContentPane().setBackground(new Color(80,130,180));
         setLocationRelativeTo(null);
 
         // Notes list
