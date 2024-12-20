@@ -9,6 +9,7 @@ public class SignupFrame extends JFrame {
     private JPasswordField passwordField;
     private JButton signupButton;
     private JLabel statusLabel, usernameLabel, passwordLabel, back;
+    
 
     public SignupFrame() {
         ImageIcon im = new ImageIcon("notes.png");

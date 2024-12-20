@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 public class FileManager {
+
     public static final String BASE_FOLDER_PATH = "users";
     private static final String USER_FILE = "users.txt";
 
@@ -61,6 +62,17 @@ public class FileManager {
             writer.newLine();
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public static boolean saveNewNoteToFile(Note newNote, String username) {
+        try {
+            // Assuming saveNoteToFile method handles saving logic for new notes
+            saveNoteToFile(newNote, username);  // Reuse the method you've already implemented
+            return true;  // Indicating success
+        } catch (Exception e) { // Use general Exception if you want to catch all exceptions
+            e.printStackTrace();
+            return false;  // Indicating failure
         }
     }
 
@@ -118,7 +130,7 @@ public class FileManager {
         if (!file.exists()) {
             return notes;
         }
-           
+
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             String title = null, content = null, imagePaths = null, sketchPath = null, password = null;
@@ -158,7 +170,7 @@ public class FileManager {
         }
         return notes;
     }
-    
+
     static Map<String, String> loadUsersFromFile() {
         Map<String, String> users = new HashMap<>();
         File file = new File(USER_FILE);
@@ -181,6 +193,7 @@ public class FileManager {
 
         return users;
     }
+
     public static boolean saveUserToFile(User user) {
         Map<String, String> users = loadUsersFromFile();
 
@@ -202,10 +215,8 @@ public class FileManager {
         }
     }
 
-
     // Other methods remain unchanged
     // ... (saveSketchToFile, saveImageToFile, saveUserToFile, validateUser, loadUsersFromFile, deleteNoteFromFile)
-
     // Updated deleteNoteFromFile method to handle List<String> imagePaths
     public static boolean deleteNoteFromFile(Note note, String username) {
         List<Note> notes = loadNotesFromFile(username);
