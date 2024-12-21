@@ -1,12 +1,16 @@
 package com.mycompany.notetakingapp;
 
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.imageio.ImageIO;
 
 public class FileManager {
 
@@ -38,6 +42,15 @@ public class FileManager {
         return imagesDirPath;
     }
 
+    public static String getUserSketchDir(String username) {
+        String sketchDirPath = Paths.get(getUserDir(username), "sketches").toString();
+        File sketchDir = new File(sketchDirPath);
+        if (!sketchDir.exists()) {
+            sketchDir.mkdirs();
+        }
+        return sketchDirPath;
+    }
+
     private static String getUserSubDir(String username, String subDirName) {
         String userDir = getUserDir(username);
         String subDirPath = Paths.get(userDir, subDirName).toString();
@@ -65,26 +78,45 @@ public class FileManager {
         }
     }
 
+    public static String saveSketchToFile(String username, BufferedImage sketch) {
+        try {
+            String sketchDir = getUserSketchDir(username);
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String fileName = "sketch_" + timestamp + ".png";
+            String filePath = Paths.get(sketchDir, fileName).toString();
+
+            File outputFile = new File(filePath);
+            ImageIO.write(sketch, "PNG", outputFile);
+
+            // Return the relative path from the user directory
+            return Paths.get("users", username, "sketches", fileName).toString();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     // Updated saveNoteToFile method to handle List<String> imagePaths
     // Save a note to the notes file
     public static void saveNoteToFile(Note note, String username) {
         String notesFilePath = getUserFilePath(username, "notes.txt");
         File notesFile = new File(notesFilePath);
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(notesFile, true))) {
-            writer.write("Title: " + note.getTitle());
+            writer.write("Title: " + note.getTitle().replace("\n", "\\n"));
             writer.newLine();
-            writer.write("Content: " + note.getContent());
+            writer.write("Content: " + note.getContent().replace("\n", "\\n"));
             writer.newLine();
 
             // Save image paths as relative paths within the images folder
             List<String> relativeImagePaths = new ArrayList<>();
             for (String imagePath : note.getImagePaths()) {
-                relativeImagePaths.add(Paths.get("images", new File(imagePath).getName()).toString());
+                String relativePath = "users/" + username + "/images/" + new File(imagePath).getName();
+                relativeImagePaths.add(relativePath);
             }
             writer.write("Image Path: " + String.join(",", relativeImagePaths));
             writer.newLine();
 
-            writer.write("Sketch Path: " + note.getSketchPath());
+            writer.write("Sketch Path: " + (note.getSketchPath() != null ? note.getSketchPath() : ""));
             writer.newLine();
 
             if (note instanceof SecureNote) {
@@ -117,44 +149,91 @@ public class FileManager {
         List<Note> notes = loadNotesFromFile(username);
 
         boolean noteFound = false;
+
+        // Find and update the matching note
         for (int i = 0; i < notes.size(); i++) {
             if (notes.get(i).equals(oldNote)) {
+                System.out.println("Debug: Found the note to update: " + oldNote.getTitle());
                 notes.get(i).setTitle(updatedNote.getTitle());
                 notes.get(i).setContent(updatedNote.getContent());
-                notes.get(i).setImagePath(updatedNote.getImagePaths()); // Using the new method
+                notes.get(i).setImagePath(updatedNote.getImagePaths());
                 notes.get(i).setSketchPath(updatedNote.getSketchPath());
+
+                // If it's a SecureNote, handle the password field
+                if (notes.get(i) instanceof SecureNote && updatedNote instanceof SecureNote) {
+                    ((SecureNote) notes.get(i)).setPassword(((SecureNote) updatedNote).getPassword());
+                }
                 noteFound = true;
                 break;
             }
         }
 
-        if (noteFound) {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-                for (Note note : notes) {
-                    writer.write("Title: " + note.getTitle());
-                    writer.newLine();
-                    writer.write("Content: " + note.getContent());
-                    writer.newLine();
-                    writer.write("Image Path: " + String.join(",", note.getImagePaths())); // Join paths with comma
-                    writer.newLine();
-                    writer.write("Sketch Path: " + note.getSketchPath());
-                    writer.newLine();
+        if (!noteFound) {
+            System.err.println("Debug: Note not found in the file.");
+            return false;
+        }
 
-                    if (note instanceof SecureNote) {
-                        SecureNote secureNote = (SecureNote) note;
-                        writer.write("Password: " + secureNote.getPassword());
-                        writer.newLine();
-                    }
+        File tempFile = new File(file.getParent(), "notes_temp.txt");
 
-                    writer.write("---- End of Note ----");
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
+            // Write all notes to the temporary file
+            for (Note note : notes) {
+                writer.write("Title: " + note.getTitle());
+                writer.newLine();
+                writer.write("Content: " + note.getContent());
+                writer.newLine();
+                writer.write("Image Path: " + String.join(",", note.getImagePaths()));
+                writer.newLine();
+                writer.write("Sketch Path: " + note.getSketchPath());
+                writer.newLine();
+
+                if (note instanceof SecureNote) {
+                    SecureNote secureNote = (SecureNote) note;
+                    writer.write("Password: " + secureNote.getPassword());
                     writer.newLine();
                 }
+
+                writer.write("---- End of Note ----");
+                writer.newLine();
+            }
+
+            writer.flush();
+            System.out.println("Debug: Successfully wrote to the temporary file.");
+        } catch (IOException e) {
+            System.err.println("Debug: Error writing to the temporary file - " + e.getMessage());
+            e.printStackTrace();
+            if (tempFile.exists()) {
+                tempFile.delete(); // Cleanup temporary file
+            }
+            return false;
+        }
+
+        // Replace original file with the temporary file
+        if (!tempFile.renameTo(file)) {
+            System.err.println("Debug: Failed to rename the temporary file to the original file.");
+            try {
+                // Fallback: Copy content to the original file
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(file)); BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        writer.write(line);
+                        writer.newLine();
+                    }
+                }
+
+                System.out.println("Debug: Successfully replaced the original file using fallback.");
+                tempFile.delete(); // Cleanup temporary file
                 return true;
             } catch (IOException e) {
+                System.err.println("Debug: Fallback failed - " + e.getMessage());
                 e.printStackTrace();
+                return false;
             }
         }
-        return false;
+
+        System.out.println("Debug: Successfully replaced the original file.");
+        return true;
     }
 
     // Updated loadNotesFromFile method to handle List<String> imagePaths
@@ -172,21 +251,34 @@ public class FileManager {
 
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("Title: ")) {
-                    title = line.substring(7);
+                    title = line.substring(7).replace("\\n", "\n");
                 } else if (line.startsWith("Content: ")) {
-                    content = line.substring(9);
+                    content = line.substring(9).replace("\\n", "\n");
                 } else if (line.startsWith("Image Path: ")) {
                     imagePaths = line.substring(12);
                 } else if (line.startsWith("Sketch Path: ")) {
                     sketchPath = line.substring(13);
+                    // Convert relative path to absolute path if needed
+                    if (!sketchPath.isEmpty()) {
+                        File sketchFile = new File(sketchPath);
+                        if (!sketchFile.exists()) {
+                            sketchPath = Paths.get(System.getProperty("user.dir"), sketchPath).toString();
+                        }
+                    }
                 } else if (line.startsWith("Password: ")) {
                     password = line.substring(10);
                 } else if (line.equals("---- End of Note ----")) {
                     if (title != null && content != null) {
-                        // Convert comma-separated image paths to List
+                        // Convert image paths
                         List<String> imagePathsList = new ArrayList<>();
                         if (imagePaths != null && !imagePaths.trim().isEmpty()) {
-                            imagePathsList.addAll(Arrays.asList(imagePaths.split(",")));
+                            for (String path : imagePaths.split(",")) {
+                                File imgFile = new File(path);
+                                if (!imgFile.exists()) {
+                                    path = Paths.get(System.getProperty("user.dir"), path).toString();
+                                }
+                                imagePathsList.add(path);
+                            }
                         }
 
                         Note note;

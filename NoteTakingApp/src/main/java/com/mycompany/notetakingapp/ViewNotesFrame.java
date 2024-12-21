@@ -43,7 +43,7 @@ public class ViewNotesFrame extends JFrame {
         ImageIcon im = new ImageIcon("notes.png");
         setIconImage(im.getImage());
         setTitle(username);
-        setSize(1200, 800);
+        setSize(1100, 700);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         getContentPane().setBackground(new Color(80, 130, 180));
         setLocationRelativeTo(null);
@@ -180,16 +180,76 @@ public class ViewNotesFrame extends JFrame {
     }
 
     private void showExpandedImage(ImageIcon thumbnail) {
-        JDialog dialog = new JDialog(this, "Expanded View", true);
-        JLabel label = new JLabel(new ImageIcon(thumbnail.getImage().getScaledInstance(-1, 400, Image.SCALE_SMOOTH)));
-        dialog.add(label);
-        dialog.pack();
-        dialog.setLocationRelativeTo(this);
-        dialog.setVisible(true);
+        // Find the original image path
+        String selectedTitle = notesList.getSelectedValue();
+        Note selectedNote = null;
+        for (Note note : notes) {
+            if (note.getTitle().equals(selectedTitle)) {
+                selectedNote = note;
+                break;
+            }
+        }
+
+        if (selectedNote == null) {
+            return;
+        }
+
+        // Get the image path that corresponds to this thumbnail
+        int selectedIndex = imagesList.getSelectedIndex();
+        if (selectedIndex < 0 || selectedIndex >= selectedNote.getImagePaths().size()) {
+            return;
+        }
+
+        String imagePath = selectedNote.getImagePaths().get(selectedIndex);
+
+        try {
+            // Load the full quality image
+            File imgFile = new File(imagePath);
+            if (!imgFile.exists()) {
+                // Try with full path
+                imgFile = new File(System.getProperty("user.dir"), imagePath);
+            }
+
+            if (imgFile.exists()) {
+                BufferedImage fullImage = ImageIO.read(imgFile);
+                if (fullImage != null) {
+                    // Create a dialog to show the full image
+                    JDialog dialog = new JDialog(this, "Image Viewer", true);
+
+                    // Scale the image to fit the screen while maintaining aspect ratio
+                    Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+                    int maxWidth = (int) (screenSize.width * 0.8);
+                    int maxHeight = (int) (screenSize.height * 0.8);
+
+                    double scale = Math.min(
+                            (double) maxWidth / fullImage.getWidth(),
+                            (double) maxHeight / fullImage.getHeight()
+                    );
+
+                    int scaledWidth = (int) (fullImage.getWidth() * scale);
+                    int scaledHeight = (int) (fullImage.getHeight() * scale);
+
+                    // Create a high-quality scaled image
+                    Image scaledImage = fullImage.getScaledInstance(
+                            scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
+
+                    JLabel imageLabel = new JLabel(new ImageIcon(scaledImage));
+                    JScrollPane scrollPane = new JScrollPane(imageLabel);
+
+                    dialog.add(scrollPane);
+                    dialog.setSize(scaledWidth + 50, scaledHeight + 50);
+                    dialog.setLocationRelativeTo(this);
+                    dialog.setVisible(true);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error loading full-quality image.");
+        }
     }
 
     private void openSketchPad() {
-        SketchPad sketchPad = new SketchPad();
+        SketchPad sketchPad = new SketchPad(username);
         sketchPad.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent e) {
@@ -237,32 +297,108 @@ public class ViewNotesFrame extends JFrame {
         noteContentArea.setText(note.getContent());
         noteTitleField.setText(note.getTitle());
 
+        // Set fields as non-editable initially
+        noteTitleField.setEditable(false);
+        noteContentArea.setEditable(false);
+
         // Clear existing media
         imagesListModel.clear();
         sketchesListModel.clear();
 
-        // Load images
-        if (note.getImagePaths() != null) {
+        // Load images with absolute paths
+        if (note.getImagePaths() != null && !note.getImagePaths().isEmpty()) {
             for (String imagePath : note.getImagePaths()) {
-                File imgFile = new File(imagePath);
-                if (imgFile.exists()) {
-                    ImageIcon original = new ImageIcon(imagePath);
-                    ImageIcon thumbnail = createThumbnail(original.getImage());
-                    imagesListModel.addElement(thumbnail);
+                try {
+                    File imgFile = new File(imagePath);
+                    if (!imgFile.exists()) {
+                        // Try with full path
+                        imgFile = new File(System.getProperty("user.dir"), imagePath);
+                    }
 
-                    // Load sketches
-                    /*if (note.getImagePaths() != null) {
-            for (String sketchPath : note.getImagePaths()) {
-                File sketchFile = new File(sketchPath);
-                if (sketchFile.exists()) {
-                    ImageIcon original = new ImageIcon(sketchPath);
-                    ImageIcon thumbnail = createThumbnail(original.getImage());
-                    sketchesListModel.addElement(thumbnail);
+                    if (imgFile.exists()) {
+                        BufferedImage img = ImageIO.read(imgFile);
+                        if (img != null) {
+                            // Create high-quality thumbnail
+                            BufferedImage thumbnail = createHighQualityThumbnail(img);
+                            imagesListModel.addElement(new ImageIcon(thumbnail));
+                        }
+                    }
+                } catch (IOException e) {
+                    System.err.println("Error loading image: " + imagePath);
+                    e.printStackTrace();
                 }
             }
-        }*/
+        }
+
+        // Load sketches
+        if (note.getSketchPath() != null && !note.getSketchPath().isEmpty()) {
+            try {
+                File sketchFile = new File(note.getSketchPath());
+                if (!sketchFile.exists()) {
+                    sketchFile = new File(System.getProperty("user.dir"), note.getSketchPath());
                 }
 
+                if (sketchFile.exists()) {
+                    BufferedImage sketch = ImageIO.read(sketchFile);
+                    if (sketch != null) {
+                        BufferedImage thumbnail = createHighQualityThumbnail(sketch);
+                        sketchesListModel.addElement(new ImageIcon(thumbnail));
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Error loading sketch: " + note.getSketchPath());
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void addImageToNote() {
+        String selectedTitle = notesList.getSelectedValue();
+        if (selectedTitle == null) {
+            JOptionPane.showMessageDialog(this, "Please select a note first.");
+            return;
+        }
+
+        JFileChooser fileChooser = new JFileChooser();
+        int returnValue = fileChooser.showOpenDialog(this);
+
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+
+            try {
+                BufferedImage originalImage = ImageIO.read(selectedFile);
+                if (originalImage == null) {
+                    JOptionPane.showMessageDialog(this, "Invalid image file.");
+                    return;
+                }
+
+                // Generate unique filename
+                String fileName = System.currentTimeMillis() + "_" + selectedFile.getName();
+
+                // Save to images directory
+                boolean saved = FileManager.saveImageToFile(username, fileName,
+                        new java.io.FileInputStream(selectedFile));
+
+                if (saved) {
+                    // Create thumbnail
+                    ImageIcon thumbnail = createThumbnail(originalImage);
+                    imagesListModel.addElement(thumbnail);
+
+                    // Update note
+                    for (Note note : notes) {
+                        if (note.getTitle().equals(selectedTitle)) {
+                            String imagePath = "users/" + username + "/images/" + fileName;
+                            note.getImagePaths().add(imagePath);
+                            FileManager.updateNoteInFile(note, note, username);
+                            break;
+                        }
+                    }
+                    JOptionPane.showMessageDialog(this, "Image added successfully.");
+                } else {
+                    JOptionPane.showMessageDialog(this, "Error saving image.");
+                }
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(this, "Error loading image: " + e.getMessage());
             }
         }
     }
@@ -273,25 +409,33 @@ public class ViewNotesFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Please select a note to edit.");
             return;
         }
+
+        // Enable editing
         noteTitleField.setEditable(true);
         noteContentArea.setEditable(true);
+
+        /* Optional: Change the edit button text to indicate editing mode
+    editButton.setText("Editing...");*/
     }
 
     private void saveNote() {
         String selectedTitle = notesList.getSelectedValue();
-        if (selectedTitle == null) {
-            JOptionPane.showMessageDialog(this, "Please select a note to save.");
-            return;
-        }
-
         String newTitle = noteTitleField.getText();
         String newContent = noteContentArea.getText();
 
+        // If no title or content, show error message
         if (newTitle.isEmpty() || newContent.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Both title and content must be filled.");
             return;
         }
 
+        // If no note is selected (creating new note)
+        if (selectedTitle == null) {
+            createNewNote(newTitle, newContent);
+            return;
+        }
+
+        // Find the existing note
         Note selectedNote = null;
         for (Note note : notes) {
             if (note.getTitle().equals(selectedTitle)) {
@@ -300,48 +444,148 @@ public class ViewNotesFrame extends JFrame {
             }
         }
 
-        if (selectedNote != null) {
-            selectedNote.setTitle(newTitle);
-            selectedNote.setContent(newContent);
-            boolean success = FileManager.updateNoteInFile(selectedNote, selectedNote, username);
+        if (selectedNote == null) {
+            JOptionPane.showMessageDialog(this, "Error: Note not found.");
+            return;
+        }
+
+        // Handle SecureNote separately
+        Note oldNote;
+        if (selectedNote instanceof SecureNote) {
+            SecureNote secureNote = (SecureNote) selectedNote;
+            oldNote = new SecureNote(
+                    secureNote.getTitle(),
+                    secureNote.getContent(),
+                    secureNote.getImagePaths(),
+                    secureNote.getSketchPath(),
+                    secureNote.getPassword()
+            );
+        } else {
+            oldNote = new Note(
+                    selectedNote.getTitle(),
+                    selectedNote.getContent(),
+                    selectedNote.getImagePaths(),
+                    selectedNote.getSketchPath()
+            );
+        }
+
+        System.out.println("Debug: Selected note -> Title: " + selectedTitle + ", Content: " + selectedNote.getContent());
+        System.out.println("Debug: Old note -> Title: " + oldNote.getTitle() + ", Content: " + oldNote.getContent());
+
+        // If title has changed, ask if they want to update or create new
+        if (!selectedTitle.equals(newTitle)) {
+            int option = JOptionPane.showConfirmDialog(this,
+                    "The title has been changed. Do you want to update the existing note?",
+                    "Change Title",
+                    JOptionPane.YES_NO_OPTION);
+
+            if (option == JOptionPane.NO_OPTION) {
+                createNewNote(newTitle, newContent);
+                return;
+            }
+
+            // Create updatedNote with appropriate type
+            Note updatedNote;
+            if (selectedNote instanceof SecureNote) {
+                SecureNote secureNote = (SecureNote) selectedNote;
+                updatedNote = new SecureNote(
+                        newTitle,
+                        newContent,
+                        secureNote.getImagePaths(),
+                        secureNote.getSketchPath(),
+                        secureNote.getPassword()
+                );
+            } else {
+                updatedNote = new Note(newTitle, newContent, selectedNote.getImagePaths(), selectedNote.getSketchPath());
+            }
+
+            boolean success = FileManager.updateNoteInFile(oldNote, updatedNote, username);
+
             if (success) {
                 JOptionPane.showMessageDialog(this, "Note updated successfully.");
                 notesListModel.setElementAt(newTitle, notesList.getSelectedIndex());
+                // Update the note in memory only after successful file update
+                selectedNote.setTitle(newTitle);
+                selectedNote.setContent(newContent);
+            } else {
+                JOptionPane.showMessageDialog(this, "Error updating note.");
+            }
+        } else {
+            // Just update content of existing note
+            Note updatedNote;
+            if (selectedNote instanceof SecureNote) {
+                SecureNote secureNote = (SecureNote) selectedNote;
+                updatedNote = new SecureNote(
+                        selectedTitle,
+                        newContent,
+                        secureNote.getImagePaths(),
+                        secureNote.getSketchPath(),
+                        secureNote.getPassword()
+                );
+            } else {
+                updatedNote = new Note(selectedTitle, newContent, selectedNote.getImagePaths(), selectedNote.getSketchPath());
+            }
+
+            boolean success = FileManager.updateNoteInFile(oldNote, updatedNote, username);
+
+            if (success) {
+                JOptionPane.showMessageDialog(this, "Note updated successfully.");
+                // Update the note in memory only after successful file update
+                selectedNote.setContent(newContent);
             } else {
                 JOptionPane.showMessageDialog(this, "Error updating note.");
             }
         }
+
+        // Disable editing after saving
+        noteTitleField.setEditable(false);
+        noteContentArea.setEditable(false);
+        editButton.setText("Edit Note");
+
+        System.out.println("Debug: Save note process completed.");
     }
 
-    private void updateExistingNote(Note existingNote, String newContent, String password) {
-        existingNote.setContent(newContent);
-        if (existingNote instanceof SecureNote && password != null) {
-            ((SecureNote) existingNote).setPassword(password);
-        }
-        boolean success = FileManager.updateNoteInFile(existingNote, existingNote, username);
-        if (success) {
-            JOptionPane.showMessageDialog(this, "Note updated successfully.");
-            displayNoteContent(existingNote.getTitle());
-        } else {
-            JOptionPane.showMessageDialog(this, "Error updating note.");
-        }
-    }
+    private void createNewNote(String title, String content) {
+        // Ask if the user wants to create a secure note
+        int option = JOptionPane.showConfirmDialog(this,
+                "Do you want to create this note as a secure note?",
+                "Create Secure Note",
+                JOptionPane.YES_NO_OPTION);
 
-    private void createNewNote(String title, String content, String password) {
-        Note newNote;
-        if (password != null) {
-            newNote = new SecureNote(title, content, new ArrayList<>(), username, password);
+        if (option == JOptionPane.YES_OPTION) {
+            // Secure note flow
+            String password = JOptionPane.showInputDialog(this, "Enter a password for this secure note:");
+            if (password != null && !password.isEmpty()) {
+                Note newNote = new SecureNote(title, content, new ArrayList<>(), username, password);
+                notes.add(newNote);
+                notesListModel.addElement(title);
+                boolean success = FileManager.saveNewNoteToFile(newNote, username);
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "New secure note saved successfully.");
+                } else {
+                    JOptionPane.showMessageDialog(this, "Error saving new secure note.");
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Password cannot be empty.");
+                return;
+            }
         } else {
-            newNote = new Note(title, content, new ArrayList<>(), username);
+            // Regular note flow
+            Note newNote = new Note(title, content, new ArrayList<>(), username);
+            notes.add(newNote);
+            notesListModel.addElement(title);
+            boolean success = FileManager.saveNewNoteToFile(newNote, username);
+            if (success) {
+                JOptionPane.showMessageDialog(this, "New note saved successfully.");
+            } else {
+                JOptionPane.showMessageDialog(this, "Error saving new note.");
+            }
         }
-        notes.add(newNote);
-        notesListModel.addElement(title);
-        boolean success = FileManager.saveNewNoteToFile(newNote, username);
-        if (success) {
-            JOptionPane.showMessageDialog(this, "New note saved successfully.");
-        } else {
-            JOptionPane.showMessageDialog(this, "Error saving new note.");
-        }
+
+        // Disable editing after saving
+        noteTitleField.setEditable(false);
+        noteContentArea.setEditable(false);
+        editButton.setText("Edit Note");
     }
 
     private void deleteNote() {
@@ -375,45 +619,6 @@ public class ViewNotesFrame extends JFrame {
         }
     }
 
-    private void addImageToNote() {
-    JFileChooser fileChooser = new JFileChooser();
-    int returnValue = fileChooser.showOpenDialog(this);
-
-    if (returnValue == JFileChooser.APPROVE_OPTION) {
-        File selectedFile = fileChooser.getSelectedFile();
-
-        try {
-            // Load the image as a BufferedImage for processing
-            BufferedImage originalImage = ImageIO.read(selectedFile);
-            if (originalImage == null) {
-                JOptionPane.showMessageDialog(this, "Invalid image file.");
-                return;
-            }
-
-            // Create a thumbnail and add it to the list
-            ImageIcon thumbnail = createThumbnail(originalImage);
-            imagesListModel.addElement(thumbnail);
-
-            // Save the image path to the selected note
-            String selectedTitle = notesList.getSelectedValue();
-            if (selectedTitle != null) {
-                for (Note note : notes) {
-                    if (note.getTitle().equals(selectedTitle)) {
-                        note.getImagePaths().add(selectedFile.getAbsolutePath());
-                        FileManager.updateNoteInFile(note, note, username);
-                        break;
-                    }
-                }
-            }
-
-            JOptionPane.showMessageDialog(this, "Image added successfully.");
-        } catch (IOException e) {
-            JOptionPane.showMessageDialog(this, "Error loading image: " + e.getMessage());
-        }
-    }
-}
-
-
     private ImageIcon createThumbnail(Image image) {
         // Create a BufferedImage with the desired thumbnail dimensions
         BufferedImage thumbnail = new BufferedImage(
@@ -432,36 +637,20 @@ public class ViewNotesFrame extends JFrame {
         return new ImageIcon(thumbnail);
     }
 
-    /*private void resizeImage(String imagePath) {
-        try {
-            BufferedImage originalImage = ImageIO.read(new File(imagePath));
-            
-            // Calculate new dimensions while maintaining aspect ratio
-            int targetWidth = imagePanel.getWidth();
-            int targetHeight = imagePanel.getHeight();
-            
-            double widthRatio = (double) targetWidth / originalImage.getWidth();
-            double heightRatio = (double) targetHeight / originalImage.getHeight();
-            double ratio = Math.min(widthRatio, heightRatio);
-            
-            int scaledWidth = (int) (originalImage.getWidth() * ratio);
-            int scaledHeight = (int) (originalImage.getHeight() * ratio);
-            
-            Image scaledImage = originalImage.getScaledInstance(
-                scaledWidth,
-                scaledHeight,
-                Image.SCALE_SMOOTH
-            );
-            
-            ImageIcon imageIcon = new ImageIcon(scaledImage);
-            imageLabel.setIcon(imageIcon);
-            
-        } catch (IOException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                "Error resizing image: " + e.getMessage(),
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
-        }
-    }*/
+    private BufferedImage createHighQualityThumbnail(BufferedImage original) {
+        BufferedImage thumbnail = new BufferedImage(
+                THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+
+        Graphics2D g2d = thumbnail.createGraphics();
+        // Enable high-quality rendering
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        g2d.drawImage(original, 0, 0, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, null);
+        g2d.dispose();
+
+        return thumbnail;
+    }
+
 }

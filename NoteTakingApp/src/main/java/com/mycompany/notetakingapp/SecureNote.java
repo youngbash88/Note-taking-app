@@ -1,6 +1,7 @@
 package com.mycompany.notetakingapp;
 import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 
 public class SecureNote extends Note implements Serializable {
     private String password;
@@ -25,5 +26,14 @@ public class SecureNote extends Note implements Serializable {
     // Setter for password
     public void setPassword(String password) {
         this.password = password;
+    }
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true; // Same reference
+        if (!(obj instanceof SecureNote)) return false; // Different class type
+        if (!super.equals(obj)) return false; // Check equality of parent class fields
+
+        SecureNote other = (SecureNote) obj;
+        return Objects.equals(this.password, other.password); // Compare passwords
     }
 }
