@@ -1,26 +1,23 @@
-Title: lidnlh
-Content: kmlkjlkdjlkjfs
-Image Path: 
-Sketch Path: youssef
----- End of Note ----
 Title: hey
 Content: lkdsjlkfj
 Image Path: 
-Sketch Path: youssef
+Sketch Path: C:\Users\USER\projects\note\NoteTakingApp\youssef
 ---- End of Note ----
 Title: hey man
 Content: wowwowoow
 Image Path: 
-Sketch Path: youssef
+Sketch Path: C:\Users\USER\projects\note\NoteTakingApp\youssef
 ---- End of Note ----
 Title: hey mann
 Content: wowwowoow
 Image Path: 
-Sketch Path: youssef
+Sketch Path: C:\Users\USER\projects\note\NoteTakingApp\youssef
 ---- End of Note ----
-Title: heyyoo
-Content: my name
+Title: lines test
+Content: one
+two
+three
+
 Image Path: 
-Sketch Path: youssef
-Password: 12345678
+Sketch Path: C:\Users\USER\projects\note\NoteTakingApp\youssef
 ---- End of Note ----

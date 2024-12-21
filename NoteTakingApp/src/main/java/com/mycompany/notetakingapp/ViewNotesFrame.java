@@ -180,7 +180,6 @@ public class ViewNotesFrame extends JFrame {
     }
 
     private void showExpandedImage(ImageIcon thumbnail) {
-        // Find the original image path
         String selectedTitle = notesList.getSelectedValue();
         Note selectedNote = null;
         for (Note note : notes) {
@@ -195,28 +194,49 @@ public class ViewNotesFrame extends JFrame {
         }
 
         // Get the image path that corresponds to this thumbnail
-        int selectedIndex = imagesList.getSelectedIndex();
-        if (selectedIndex < 0 || selectedIndex >= selectedNote.getImagePaths().size()) {
+        int selectedIndex = -1;
+        if (imagesList.getSelectedValue() != null) {
+            selectedIndex = imagesList.getSelectedIndex();
+        } else if (sketchesList.getSelectedValue() != null) {
+            selectedIndex = sketchesList.getSelectedIndex();
+        }
+
+        if (selectedIndex < 0) {
             return;
         }
 
-        String imagePath = selectedNote.getImagePaths().get(selectedIndex);
+        String imagePath = null;
+        if (imagesList.getSelectedValue() != null && selectedIndex < selectedNote.getImagePaths().size()) {
+            imagePath = selectedNote.getImagePaths().get(selectedIndex);
+        } else if (sketchesList.getSelectedValue() != null) {
+            imagePath = selectedNote.getSketchPath();
+        }
+
+        if (imagePath == null) {
+            return;
+        }
 
         try {
-            // Load the full quality image
+            // First try with the path as is
             File imgFile = new File(imagePath);
+
+            // If file doesn't exist, try with user directory path
             if (!imgFile.exists()) {
-                // Try with full path
                 imgFile = new File(System.getProperty("user.dir"), imagePath);
+            }
+
+            // If still doesn't exist, try constructing from base folder
+            if (!imgFile.exists()) {
+                imgFile = new File(FileManager.BASE_FOLDER_PATH + File.separator + imagePath);
             }
 
             if (imgFile.exists()) {
                 BufferedImage fullImage = ImageIO.read(imgFile);
                 if (fullImage != null) {
-                    // Create a dialog to show the full image
                     JDialog dialog = new JDialog(this, "Image Viewer", true);
+                    dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
-                    // Scale the image to fit the screen while maintaining aspect ratio
+                    // Scale image while maintaining aspect ratio
                     Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
                     int maxWidth = (int) (screenSize.width * 0.8);
                     int maxHeight = (int) (screenSize.height * 0.8);
@@ -229,7 +249,6 @@ public class ViewNotesFrame extends JFrame {
                     int scaledWidth = (int) (fullImage.getWidth() * scale);
                     int scaledHeight = (int) (fullImage.getHeight() * scale);
 
-                    // Create a high-quality scaled image
                     Image scaledImage = fullImage.getScaledInstance(
                             scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
 
@@ -241,10 +260,12 @@ public class ViewNotesFrame extends JFrame {
                     dialog.setLocationRelativeTo(this);
                     dialog.setVisible(true);
                 }
+            } else {
+                JOptionPane.showMessageDialog(this, "Image file not found: " + imagePath);
             }
         } catch (IOException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error loading full-quality image.");
+            JOptionPane.showMessageDialog(this, "Error loading image: " + e.getMessage());
         }
     }
 
@@ -256,21 +277,10 @@ public class ViewNotesFrame extends JFrame {
                 if (sketchPad.getSavedImage() != null) {
                     ImageIcon thumbnail = createThumbnail(sketchPad.getSavedImage());
                     sketchesListModel.addElement(thumbnail);
-                    // Save sketch to file system and update note's sketch paths
-                    saveSketchtoDisk(sketchPad.getSavedImage());
                 }
             }
         });
         sketchPad.setVisible(true);
-    }
-
-    private void saveSketchtoDisk(BufferedImage image) {
-        // TODO: Implement saving sketch to disk
-        // This should:
-        // 1. Generate a unique filename
-        // 2. Save the image to the appropriate directory
-        // 3. Add the path to the current note's sketch paths
-        // 4. Update the note in the file system
     }
 
     private void displayNoteContent(String selectedTitle) {
@@ -305,23 +315,27 @@ public class ViewNotesFrame extends JFrame {
         imagesListModel.clear();
         sketchesListModel.clear();
 
-        // Load images with absolute paths
+        // Load images
         if (note.getImagePaths() != null && !note.getImagePaths().isEmpty()) {
             for (String imagePath : note.getImagePaths()) {
                 try {
+                    // Try different path variations
                     File imgFile = new File(imagePath);
                     if (!imgFile.exists()) {
-                        // Try with full path
                         imgFile = new File(System.getProperty("user.dir"), imagePath);
+                    }
+                    if (!imgFile.exists()) {
+                        imgFile = new File(FileManager.BASE_FOLDER_PATH + File.separator + imagePath);
                     }
 
                     if (imgFile.exists()) {
                         BufferedImage img = ImageIO.read(imgFile);
                         if (img != null) {
-                            // Create high-quality thumbnail
                             BufferedImage thumbnail = createHighQualityThumbnail(img);
                             imagesListModel.addElement(new ImageIcon(thumbnail));
                         }
+                    } else {
+                        System.err.println("Image file not found: " + imagePath);
                     }
                 } catch (IOException e) {
                     System.err.println("Error loading image: " + imagePath);
@@ -330,12 +344,15 @@ public class ViewNotesFrame extends JFrame {
             }
         }
 
-        // Load sketches
+        // Load sketch with the same path handling logic
         if (note.getSketchPath() != null && !note.getSketchPath().isEmpty()) {
             try {
                 File sketchFile = new File(note.getSketchPath());
                 if (!sketchFile.exists()) {
                     sketchFile = new File(System.getProperty("user.dir"), note.getSketchPath());
+                }
+                if (!sketchFile.exists()) {
+                    sketchFile = new File(FileManager.BASE_FOLDER_PATH + File.separator + note.getSketchPath());
                 }
 
                 if (sketchFile.exists()) {
@@ -344,6 +361,8 @@ public class ViewNotesFrame extends JFrame {
                         BufferedImage thumbnail = createHighQualityThumbnail(sketch);
                         sketchesListModel.addElement(new ImageIcon(thumbnail));
                     }
+                } else {
+                    System.err.println("Sketch file not found: " + note.getSketchPath());
                 }
             } catch (IOException e) {
                 System.err.println("Error loading sketch: " + note.getSketchPath());

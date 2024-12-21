@@ -39,7 +39,23 @@ public class SketchPad extends JFrame {
         initializeDrawingComponents();
         setupDrawingPanel();
         setupToolbar();
-        layoutComponents();
+        // Create main content panel
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        
+        // Setup and add toolbar
+        JToolBar toolbar = setupToolbar();
+        mainPanel.add(toolbar, BorderLayout.NORTH);
+        // Setup drawing panel
+        setupDrawingPanel();
+        
+        // Add drawing panel to a scroll pane
+        JScrollPane scrollPane = new JScrollPane(drawingPanel);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        mainPanel.add(scrollPane, BorderLayout.CENTER);
+        // Add main panel to frame
+        add(mainPanel);
+        
         createSketchDirectory();
     }
 
@@ -113,25 +129,23 @@ public class SketchPad extends JFrame {
         drawingPanel.setPreferredSize(new Dimension(800, 600));
     }
 
-    private void setupToolbar() {
+    
+    private JToolBar setupToolbar() {
         JToolBar toolbar = new JToolBar();
         toolbar.setFloatable(false);
 
-        // Create buttons with icons and text
         JButton colorButton = createToolbarButton("Color", "Choose drawing color");
         JButton strokeButton = createToolbarButton("Stroke", "Adjust stroke width");
         JButton clearButton = createToolbarButton("Clear", "Clear canvas");
         JButton saveButton = createToolbarButton("Save", "Save sketch");
         JButton undoButton = createToolbarButton("Undo", "Undo last stroke");
 
-        // Add action listeners
         colorButton.addActionListener(e -> chooseColor());
         strokeButton.addActionListener(e -> adjustStrokeWidth());
         clearButton.addActionListener(e -> clearCanvas());
         saveButton.addActionListener(e -> saveSketch());
         undoButton.addActionListener(e -> undoLastStroke());
 
-        // Add buttons to toolbar with separators
         toolbar.add(colorButton);
         toolbar.addSeparator();
         toolbar.add(strokeButton);
@@ -142,10 +156,8 @@ public class SketchPad extends JFrame {
         toolbar.addSeparator();
         toolbar.add(saveButton);
 
-        // Add the toolbar to the frame
-        add(toolbar, BorderLayout.NORTH);
+        return toolbar;  // Now returns the toolbar instead of void
     }
-
     private JButton createToolbarButton(String text, String tooltip) {
         JButton button = new JButton(text);
         button.setToolTipText(tooltip);
