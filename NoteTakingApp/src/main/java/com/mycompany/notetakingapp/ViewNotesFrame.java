@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ViewNotesFrame extends JFrame {
+
     private List<Note> notes;
     private String username;
     private JList<String> notesList;
@@ -23,10 +24,10 @@ public class ViewNotesFrame extends JFrame {
     private JList<ImageIcon> sketchesList;
     private DefaultListModel<ImageIcon> sketchesListModel;
     private JButton editButton, deleteButton, saveButton, backButton, sketchButton, addImageButton;
-    
+
     // Constants for thumbnail size
-    private static final int THUMBNAIL_WIDTH = 100;
-    private static final int THUMBNAIL_HEIGHT = 100;
+    private static final int THUMBNAIL_WIDTH = 50;
+    private static final int THUMBNAIL_HEIGHT = 50;
 
     public ViewNotesFrame(List<Note> notes, String username) {
         this.notes = notes;
@@ -71,7 +72,7 @@ public class ViewNotesFrame extends JFrame {
         imagesListModel = new DefaultListModel<>();
         imagesList = new JList<>(imagesListModel);
         imagesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        imagesList.setVisibleRowCount(2);
+        imagesList.setVisibleRowCount(1);
         imagesList.setLayoutOrientation(JList.HORIZONTAL_WRAP);
         imagesList.setFixedCellWidth(THUMBNAIL_WIDTH);
         imagesList.setFixedCellHeight(THUMBNAIL_HEIGHT);
@@ -80,7 +81,7 @@ public class ViewNotesFrame extends JFrame {
         sketchesListModel = new DefaultListModel<>();
         sketchesList = new JList<>(sketchesListModel);
         sketchesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        sketchesList.setVisibleRowCount(2);
+        sketchesList.setVisibleRowCount(1);
         sketchesList.setLayoutOrientation(JList.HORIZONTAL_WRAP);
         sketchesList.setFixedCellWidth(THUMBNAIL_WIDTH);
         sketchesList.setFixedCellHeight(THUMBNAIL_HEIGHT);
@@ -107,13 +108,13 @@ public class ViewNotesFrame extends JFrame {
 
         // Media Panel (Images and Sketches)
         JPanel mediaPanel = new JPanel(new GridLayout(2, 1, 5, 5));
-        
+
         // Images Section
         JPanel imagesPanel = new JPanel(new BorderLayout());
         imagesPanel.setBorder(BorderFactory.createTitledBorder("Images"));
         imagesPanel.add(new JScrollPane(imagesList), BorderLayout.CENTER);
         imagesPanel.add(addImageButton, BorderLayout.SOUTH);
-        
+
         // Sketches Section
         JPanel sketchesPanel = new JPanel(new BorderLayout());
         sketchesPanel.setBorder(BorderFactory.createTitledBorder("Sketches"));
@@ -248,12 +249,9 @@ public class ViewNotesFrame extends JFrame {
                     ImageIcon original = new ImageIcon(imagePath);
                     ImageIcon thumbnail = createThumbnail(original.getImage());
                     imagesListModel.addElement(thumbnail);
-                }
-            }
-        }
 
-        // Load sketches
-        /*if (note.getImagePaths() != null) {
+                    // Load sketches
+                    /*if (note.getImagePaths() != null) {
             for (String sketchPath : note.getImagePaths()) {
                 File sketchFile = new File(sketchPath);
                 if (sketchFile.exists()) {
@@ -263,6 +261,10 @@ public class ViewNotesFrame extends JFrame {
                 }
             }
         }*/
+                }
+
+            }
+        }
     }
 
     private void editNote() {
@@ -276,6 +278,12 @@ public class ViewNotesFrame extends JFrame {
     }
 
     private void saveNote() {
+        String selectedTitle = notesList.getSelectedValue();
+        if (selectedTitle == null) {
+            JOptionPane.showMessageDialog(this, "Please select a note to save.");
+            return;
+        }
+
         String newTitle = noteTitleField.getText();
         String newContent = noteContentArea.getText();
 
@@ -284,28 +292,25 @@ public class ViewNotesFrame extends JFrame {
             return;
         }
 
-        String password = null;
-        int option = JOptionPane.showConfirmDialog(this, "Is this a secure note?", "Secure Note", JOptionPane.YES_NO_OPTION);
-        if (option == JOptionPane.YES_OPTION) {
-            password = JOptionPane.showInputDialog(this, "Enter a password for this secure note:");
-        }
-
-        Note existingNote = null;
+        Note selectedNote = null;
         for (Note note : notes) {
-            if (note.getTitle().equals(newTitle)) {
-                existingNote = note;
+            if (note.getTitle().equals(selectedTitle)) {
+                selectedNote = note;
                 break;
             }
         }
 
-        if (existingNote != null) {
-            updateExistingNote(existingNote, newContent, password);
-        } else {
-            createNewNote(newTitle, newContent, password);
+        if (selectedNote != null) {
+            selectedNote.setTitle(newTitle);
+            selectedNote.setContent(newContent);
+            boolean success = FileManager.updateNoteInFile(selectedNote, selectedNote, username);
+            if (success) {
+                JOptionPane.showMessageDialog(this, "Note updated successfully.");
+                notesListModel.setElementAt(newTitle, notesList.getSelectedIndex());
+            } else {
+                JOptionPane.showMessageDialog(this, "Error updating note.");
+            }
         }
-
-        noteTitleField.setEditable(false);
-        noteContentArea.setEditable(false);
     }
 
     private void updateExistingNote(Note existingNote, String newContent, String password) {
@@ -346,8 +351,8 @@ public class ViewNotesFrame extends JFrame {
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this note?", 
-                                                  "Delete Note", JOptionPane.YES_NO_OPTION);
+        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this note?",
+                "Delete Note", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             Note noteToDelete = null;
             for (Note note : notes) {
@@ -371,23 +376,62 @@ public class ViewNotesFrame extends JFrame {
     }
 
     private void addImageToNote() {
-        JFileChooser fileChooser = new JFileChooser();
-        int returnValue = fileChooser.showOpenDialog(this);
+    JFileChooser fileChooser = new JFileChooser();
+    int returnValue = fileChooser.showOpenDialog(this);
 
-        if (returnValue == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-            ImageIcon original = new ImageIcon(selectedFile.getAbsolutePath());
-            ImageIcon thumbnail = createThumbnail(original.getImage());
+    if (returnValue == JFileChooser.APPROVE_OPTION) {
+        File selectedFile = fileChooser.getSelectedFile();
+
+        try {
+            // Load the image as a BufferedImage for processing
+            BufferedImage originalImage = ImageIO.read(selectedFile);
+            if (originalImage == null) {
+                JOptionPane.showMessageDialog(this, "Invalid image file.");
+                return;
+            }
+
+            // Create a thumbnail and add it to the list
+            ImageIcon thumbnail = createThumbnail(originalImage);
             imagesListModel.addElement(thumbnail);
-            // TODO: Save image path to note and update file
+
+            // Save the image path to the selected note
+            String selectedTitle = notesList.getSelectedValue();
+            if (selectedTitle != null) {
+                for (Note note : notes) {
+                    if (note.getTitle().equals(selectedTitle)) {
+                        note.getImagePaths().add(selectedFile.getAbsolutePath());
+                        FileManager.updateNoteInFile(note, note, username);
+                        break;
+                    }
+                }
+            }
+
             JOptionPane.showMessageDialog(this, "Image added successfully.");
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Error loading image: " + e.getMessage());
         }
     }
+}
+
 
     private ImageIcon createThumbnail(Image image) {
-        Image thumbnail = image.getScaledInstance(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, Image.SCALE_SMOOTH);
+        // Create a BufferedImage with the desired thumbnail dimensions
+        BufferedImage thumbnail = new BufferedImage(
+                THUMBNAIL_WIDTH,
+                THUMBNAIL_HEIGHT,
+                BufferedImage.TYPE_INT_ARGB
+        );
+
+        // Draw the scaled instance of the original image
+        Graphics2D g2d = thumbnail.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.drawImage(image, 0, 0, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, null);
+        g2d.dispose();
+
+        // Convert the BufferedImage to an ImageIcon
         return new ImageIcon(thumbnail);
     }
+
     /*private void resizeImage(String imagePath) {
         try {
             BufferedImage originalImage = ImageIO.read(new File(imagePath));

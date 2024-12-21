@@ -28,6 +28,16 @@ public class FileManager {
         return Paths.get(userDir, fileName).toString();
     }
 
+    // Get or create the images directory for a user
+    private static String getUserImagesDir(String username) {
+        String imagesDirPath = Paths.get(getUserDir(username), "images").toString();
+        File imagesDir = new File(imagesDirPath);
+        if (!imagesDir.exists()) {
+            imagesDir.mkdirs();
+        }
+        return imagesDirPath;
+    }
+
     private static String getUserSubDir(String username, String subDirName) {
         String userDir = getUserDir(username);
         String subDirPath = Paths.get(userDir, subDirName).toString();
@@ -38,7 +48,25 @@ public class FileManager {
         return subDirPath;
     }
 
+    // Save an image file to the images directory for a user
+    public static boolean saveImageToFile(String username, String imageName, InputStream imageData) {
+        String imagesDir = getUserImagesDir(username);
+        File imageFile = new File(Paths.get(imagesDir, imageName).toString());
+        try (OutputStream outputStream = new FileOutputStream(imageFile)) {
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = imageData.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     // Updated saveNoteToFile method to handle List<String> imagePaths
+    // Save a note to the notes file
     public static void saveNoteToFile(Note note, String username) {
         String notesFilePath = getUserFilePath(username, "notes.txt");
         File notesFile = new File(notesFilePath);
@@ -47,8 +75,15 @@ public class FileManager {
             writer.newLine();
             writer.write("Content: " + note.getContent());
             writer.newLine();
-            writer.write("Image Path: " + String.join(",", note.getImagePaths())); // Join paths with comma
+
+            // Save image paths as relative paths within the images folder
+            List<String> relativeImagePaths = new ArrayList<>();
+            for (String imagePath : note.getImagePaths()) {
+                relativeImagePaths.add(Paths.get("images", new File(imagePath).getName()).toString());
+            }
+            writer.write("Image Path: " + String.join(",", relativeImagePaths));
             writer.newLine();
+
             writer.write("Sketch Path: " + note.getSketchPath());
             writer.newLine();
 
@@ -215,9 +250,6 @@ public class FileManager {
         }
     }
 
-    // Other methods remain unchanged
-    // ... (saveSketchToFile, saveImageToFile, saveUserToFile, validateUser, loadUsersFromFile, deleteNoteFromFile)
-    // Updated deleteNoteFromFile method to handle List<String> imagePaths
     public static boolean deleteNoteFromFile(Note note, String username) {
         List<Note> notes = loadNotesFromFile(username);
         File file = new File(getUserFilePath(username, "notes.txt"));

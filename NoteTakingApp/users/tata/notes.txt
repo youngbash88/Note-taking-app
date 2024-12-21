@@ -36,3 +36,8 @@ Image Path:
 Sketch Path: tata
 Password: 1234
 ---- End of Note ----
+Title: mamam
+Content: wowowowowowowo
+Image Path: 
+Sketch Path: tata
+---- End of Note ----
