@@ -1,23 +1,15 @@
-Title: hey
-Content: lkdsjlkfj
-Image Path: 
-Sketch Path: C:\Users\USER\projects\note\NoteTakingApp\youssef
----- End of Note ----
 Title: hey man
 Content: wowwowoow
 Image Path: 
-Sketch Path: C:\Users\USER\projects\note\NoteTakingApp\youssef
+Sketch Path: youssef,users/youssef/sketches/sketch_20241222_204141.png
 ---- End of Note ----
 Title: hey mann
 Content: wowwowoow
 Image Path: 
-Sketch Path: C:\Users\USER\projects\note\NoteTakingApp\youssef
+Sketch Path: users\youssef
 ---- End of Note ----
 Title: lines test
-Content: one
-two
-three
-
+Content: one\ntwo
 Image Path: 
-Sketch Path: C:\Users\USER\projects\note\NoteTakingApp\youssef
+Sketch Path: users\youssef
 ---- End of Note ----

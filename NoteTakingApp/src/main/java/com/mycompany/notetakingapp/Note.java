@@ -7,66 +7,66 @@ import java.util.Objects;
 public class Note implements Serializable {
     private String title;
     private String content;
-    protected List<String> imagePaths; // Changed to protected for inheritance
-    private String sketchPath;
+    protected List<String> imagePaths;
+    protected List<String> sketchPaths;
     
-    public Note(String title, String content, String sketchPath) {
+    public Note(String title, String content) {
         this.title = title;
         this.content = content;
         this.imagePaths = new ArrayList<>();
-        this.sketchPath = sketchPath;
+        this.sketchPaths = new ArrayList<>();
     }
     
-    public Note(String title, String content, List<String> imagePaths, String sketchPath) {
+    public Note(String title, String content, List<String> imagePaths, List<String> sketchPaths) {
         this.title = title;
         this.content = content;
         this.imagePaths = imagePaths != null ? new ArrayList<>(imagePaths) : new ArrayList<>();
-        this.sketchPath = sketchPath;
+        this.sketchPaths = sketchPaths != null ? new ArrayList<>(sketchPaths) : new ArrayList<>();
     }
     
-    // Constructor for single image path
-    public Note(String title, String content, String imagePath, String sketchPath) {
-        this.title = title;
-        this.content = content;
-        this.imagePaths = new ArrayList<>();
-        if (imagePath != null && !imagePath.trim().isEmpty()) {
-            this.imagePaths.add(imagePath);
-        }
-        this.sketchPath = sketchPath;
-    }
-    
-    // Existing getters
+    // Getters
     public String getTitle() { return title; }
     public String getContent() { return content; }
     public List<String> getImagePaths() { return new ArrayList<>(imagePaths); }
-    public String getSketchPath() { return sketchPath; }
+    public List<String> getSketchPaths() { return new ArrayList<>(sketchPaths); }
     
-    // Existing setters
+    // Setters
     public void setTitle(String title) { this.title = title; }
     public void setContent(String content) { this.content = content; }
-    public void setSketchPath(String sketchPath) { this.sketchPath = sketchPath; }
     
-    // Updated setImagePath methods
-    public void setImagePath(List<String> paths) {
-        this.imagePaths = paths != null ? new ArrayList<>(paths) : new ArrayList<>();
-    }
-    
-    public void setImagePath(String path) {
-        this.imagePaths = new ArrayList<>();
-        if (path != null && !path.trim().isEmpty()) {
-            this.imagePaths.add(path);
+    // Media management methods
+    public void addImagePath(String imagePath) {
+        if (imagePath != null && !imagePath.trim().isEmpty() && !imagePaths.contains(imagePath)) {
+            this.imagePaths.add(imagePath);
         }
     }
     
-    // Existing methods
-    public void addImagePath(String imagePath) {
-        if (imagePath != null && !imagePath.trim().isEmpty()) {
-            this.imagePaths.add(imagePath);
+    public void addSketchPath(String sketchPath) {
+        if (sketchPath != null && !sketchPath.trim().isEmpty() && !sketchPaths.contains(sketchPath)) {
+            this.sketchPaths.add(sketchPath);
         }
     }
     
     public void removeImagePath(String imagePath) {
         this.imagePaths.remove(imagePath);
+    }
+    
+    public void removeSketchPath(String sketchPath) {
+        this.sketchPaths.remove(sketchPath);
+    }
+    
+    // Add these methods for backward compatibility
+    @Deprecated
+    public String getSketchPath() {
+        return sketchPaths.isEmpty() ? null : sketchPaths.get(0);
+    }
+    
+    @Deprecated
+    public void setSketchPath(String path) {
+        sketchPaths.clear();
+        if (path != null && !path.trim().isEmpty()) {
+            sketchPaths.add(path);
+        }
     }
     
     @Override
@@ -77,11 +77,11 @@ public class Note implements Serializable {
         return title.equals(note.title) &&
                content.equals(note.content) &&
                Objects.equals(imagePaths, note.imagePaths) &&
-               Objects.equals(sketchPath, note.sketchPath);
+               Objects.equals(sketchPaths, note.sketchPaths);
     }
     
     @Override
     public int hashCode() {
-        return Objects.hash(title, content, imagePaths, sketchPath);
+        return Objects.hash(title, content, imagePaths, sketchPaths);
     }
 }

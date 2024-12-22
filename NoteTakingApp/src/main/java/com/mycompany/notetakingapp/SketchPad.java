@@ -26,6 +26,7 @@ public class SketchPad extends JFrame {
     private JPanel drawingPanel;
     private String username;  // Add username field
     private static final String SKETCH_DIR = "sketches";
+    private String savedSketchPath; // Add this field
 
     public SketchPad(String username) {  // Modified constructor
         this.username = username;
@@ -220,11 +221,11 @@ public class SketchPad extends JFrame {
     }
 
     private void saveSketch() {
-        // Create unique filename with timestamp
+        String userSketchPath = getUserSketchDir();
         LocalDateTime now = LocalDateTime.now();
         String timestamp = now.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String fileName = "sketch_" + timestamp + ".png";
-        String filePath = Paths.get(getUserSketchDir(), fileName).toString();
+        String filePath = Paths.get(userSketchPath, fileName).toString();
 
         savedImage = new BufferedImage(canvas.getWidth(), canvas.getHeight(), BufferedImage.TYPE_INT_RGB);
         savedImage.getGraphics().drawImage(canvas, 0, 0, null);
@@ -232,12 +233,19 @@ public class SketchPad extends JFrame {
         try {
             File file = new File(filePath);
             ImageIO.write(savedImage, "PNG", file);
+            // Store the relative path instead of absolute path
+            savedSketchPath = "users/" + username + "/sketches/" + fileName;
             JOptionPane.showMessageDialog(this, "Sketch saved successfully!");
-            dispose();  // Close the sketch pad after saving
+            dispose();
         } catch (IOException ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this, "Error saving sketch: " + ex.getMessage());
         }
+    }
+
+    // Add this getter method
+    public String getSavedSketchPath() {
+        return savedSketchPath;
     }
 
     private void layoutComponents() {

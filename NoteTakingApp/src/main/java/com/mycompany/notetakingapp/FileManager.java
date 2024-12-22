@@ -97,18 +97,35 @@ public class FileManager {
     }
 
     // Helper method to convert relative path to absolute path
-    private static String toAbsolutePath(String relativePath) {
+    public static String toAbsolutePath(String relativePath) {
         if (relativePath == null || relativePath.trim().isEmpty()) {
             return null;
         }
 
-        // If it's already an absolute path, return it
-        if (new File(relativePath).isAbsolute()) {
+        File file = new File(relativePath);
+        if (file.isAbsolute()) {
             return relativePath;
         }
 
-        // Convert relative path to absolute using the application's base directory
-        return Paths.get(System.getProperty("user.dir"), relativePath).toString();
+        // First try from current directory
+        File fromCurrent = new File(System.getProperty("user.dir"), relativePath);
+        if (fromCurrent.exists()) {
+            return fromCurrent.getAbsolutePath();
+        }
+
+        // Then try from base folder
+        File fromBase = new File(BASE_FOLDER_PATH, relativePath);
+        if (fromBase.exists()) {
+            return fromBase.getAbsolutePath();
+        }
+
+        // Finally try direct path
+        if (file.exists()) {
+            return file.getAbsolutePath();
+        }
+
+        // Return the path from current directory as default
+        return fromCurrent.getAbsolutePath();
     }
 
     // Helper method to ensure path is relative to BASE_FOLDER_PATH
@@ -117,43 +134,54 @@ public class FileManager {
             return "";
         }
 
-        File file = new File(absolutePath);
-        String fileName = file.getName();
+        String basePath = new File(System.getProperty("user.dir")).getAbsolutePath();
+        String relativePath = absolutePath;
 
-        // For images
-        if (absolutePath.contains("images")) {
-            return Paths.get("users", username, "images", fileName).toString();
-        } // For sketches
-        else if (absolutePath.contains("sketches")) {
-            return Paths.get("users", username, "sketches", fileName).toString();
+        if (absolutePath.startsWith(basePath)) {
+            relativePath = absolutePath.substring(basePath.length() + 1);
         }
 
-        return absolutePath;
+        // Ensure path starts with users/username
+        if (!relativePath.startsWith("users")) {
+            if (relativePath.contains("images")) {
+                relativePath = Paths.get("users", username, "images", new File(relativePath).getName()).toString();
+            } else if (relativePath.contains("sketches")) {
+                relativePath = Paths.get("users", username, "sketches", new File(relativePath).getName()).toString();
+            }
+        }
+
+        return relativePath;
     }
 
     // Updated saveNoteToFile method to handle List<String> imagePaths
-    // Save a note to the notes file
     public static void saveNoteToFile(Note note, String username) {
         String notesFilePath = getUserFilePath(username, "notes.txt");
-        File notesFile = new File(notesFilePath);
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(notesFile, true))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(notesFilePath, true))) {
             writer.write("Title: " + escapeNewlines(note.getTitle()));
             writer.newLine();
             writer.write("Content: " + escapeNewlines(note.getContent()));
             writer.newLine();
-
-            // Convert image paths to relative paths before saving
-            List<String> relativeImagePaths = new ArrayList<>();
-            for (String imagePath : note.getImagePaths()) {
-                String relativePath = toRelativePath(imagePath, username);
-                relativeImagePaths.add(relativePath);
+            
+            // Save image paths
+            StringBuilder imagePaths = new StringBuilder();
+            for (String path : note.getImagePaths()) {
+                if (path != null && !path.trim().isEmpty()) {
+                    imagePaths.append(toRelativePath(path, username)).append(",");
+                }
             }
-            writer.write("Image Path: " + String.join(",", relativeImagePaths));
+            String imagePathsStr = imagePaths.length() > 0 ? imagePaths.substring(0, imagePaths.length() - 1) : "";
+            writer.write("Image Path: " + imagePathsStr);
             writer.newLine();
-
-            // Convert sketch path to relative path before saving
-            String relativeSketchPath = toRelativePath(note.getSketchPath(), username);
-            writer.write("Sketch Path: " + relativeSketchPath);
+            
+            // Save sketch paths
+            StringBuilder sketchPaths = new StringBuilder();
+            for (String path : note.getSketchPaths()) {
+                if (path != null && !path.trim().isEmpty()) {
+                    sketchPaths.append(toRelativePath(path, username)).append(",");
+                }
+            }
+            String sketchPathsStr = sketchPaths.length() > 0 ? sketchPaths.substring(0, sketchPaths.length() - 1) : "";
+            writer.write("Sketch Path: " + sketchPathsStr);
             writer.newLine();
 
             if (note instanceof SecureNote) {
@@ -186,7 +214,7 @@ public class FileManager {
 
         boolean noteFound = false;
         for (int i = 0; i < notes.size(); i++) {
-            if (notes.get(i).equals(oldNote)) {
+            if (notes.get(i).getTitle().equals(oldNote.getTitle())) {
                 notes.set(i, updatedNote);
                 noteFound = true;
                 break;
@@ -203,9 +231,27 @@ public class FileManager {
                 writer.newLine();
                 writer.write("Content: " + escapeNewlines(note.getContent()));
                 writer.newLine();
-                writer.write("Image Path: " + String.join(",", note.getImagePaths()));
+                
+                // Save image paths
+                StringBuilder imagePaths = new StringBuilder();
+                for (String path : note.getImagePaths()) {
+                    if (path != null && !path.trim().isEmpty()) {
+                        imagePaths.append(toRelativePath(path, username)).append(",");
+                    }
+                }
+                String imagePathsStr = imagePaths.length() > 0 ? imagePaths.substring(0, imagePaths.length() - 1) : "";
+                writer.write("Image Path: " + imagePathsStr);
                 writer.newLine();
-                writer.write("Sketch Path: " + (note.getSketchPath() != null ? note.getSketchPath() : ""));
+                
+                // Save sketch paths
+                StringBuilder sketchPaths = new StringBuilder();
+                for (String path : note.getSketchPaths()) {
+                    if (path != null && !path.trim().isEmpty()) {
+                        sketchPaths.append(toRelativePath(path, username)).append(",");
+                    }
+                }
+                String sketchPathsStr = sketchPaths.length() > 0 ? sketchPaths.substring(0, sketchPaths.length() - 1) : "";
+                writer.write("Sketch Path: " + sketchPathsStr);
                 writer.newLine();
 
                 if (note instanceof SecureNote) {
@@ -234,7 +280,7 @@ public class FileManager {
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
-            String title = null, content = null, imagePaths = null, sketchPath = null, password = null;
+            String title = null, content = null, imagePaths = null, sketchPaths = null, password = null;
 
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("Title: ")) {
@@ -244,34 +290,42 @@ public class FileManager {
                 } else if (line.startsWith("Image Path: ")) {
                     imagePaths = line.substring(12);
                 } else if (line.startsWith("Sketch Path: ")) {
-                    sketchPath = line.substring(13);
+                    sketchPaths = line.substring(13).trim();
                 } else if (line.startsWith("Password: ")) {
                     password = line.substring(10);
                 } else if (line.equals("---- End of Note ----")) {
                     if (title != null && content != null) {
-                        // Convert image paths to absolute paths
                         List<String> imagePathsList = new ArrayList<>();
                         if (imagePaths != null && !imagePaths.trim().isEmpty()) {
-                            for (String path : imagePaths.split(",")) {
-                                String absolutePath = toAbsolutePath(path.trim());
-                                if (absolutePath != null) {
-                                    imagePathsList.add(absolutePath);
+                            String[] paths = imagePaths.split(",");
+                            for (String path : paths) {
+                                String trimmedPath = path.trim();
+                                if (!trimmedPath.isEmpty()) {
+                                    imagePathsList.add(toAbsolutePath(trimmedPath));
                                 }
                             }
                         }
 
-                        // Convert sketch path to absolute path
-                        String absoluteSketchPath = toAbsolutePath(sketchPath);
+                        List<String> sketchPathsList = new ArrayList<>();
+                        if (sketchPaths != null && !sketchPaths.trim().isEmpty()) {
+                            String[] paths = sketchPaths.split(",");
+                            for (String path : paths) {
+                                String trimmedPath = path.trim();
+                                if (!trimmedPath.isEmpty()) {
+                                    sketchPathsList.add(toAbsolutePath(trimmedPath));
+                                }
+                            }
+                        }
 
                         Note note;
                         if (password != null) {
-                            note = new SecureNote(title, content, imagePathsList, absoluteSketchPath, password);
+                            note = new SecureNote(title, content, imagePathsList, sketchPathsList, password);
                         } else {
-                            note = new Note(title, content, imagePathsList, absoluteSketchPath);
+                            note = new Note(title, content, imagePathsList, sketchPathsList);
                         }
                         notes.add(note);
                     }
-                    title = content = imagePaths = sketchPath = password = null;
+                    title = content = imagePaths = sketchPaths = password = null;
                 }
             }
         } catch (IOException e) {
@@ -307,7 +361,6 @@ public class FileManager {
         Map<String, String> users = loadUsersFromFile();
 
         if (users.containsKey(user.getUsername())) {
-            System.out.println("Username already exists: " + user.getUsername());
             return false;
         }
 

@@ -10,6 +10,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.nio.file.Paths;
 
 public class ViewNotesFrame extends JFrame {
 
@@ -28,6 +31,14 @@ public class ViewNotesFrame extends JFrame {
     // Constants for thumbnail size
     private static final int THUMBNAIL_WIDTH = 50;
     private static final int THUMBNAIL_HEIGHT = 50;
+
+    // Add these constants at the class level
+    private static final int MEDIA_PANEL_HEIGHT = 150;
+    private static final int THUMBNAILS_PANEL_HEIGHT = 120;
+
+    // Add these fields at the class level
+    private Map<ImageIcon, String> imagePaths = new HashMap<>();
+    private Map<ImageIcon, String> sketchPaths = new HashMap<>();
 
     public ViewNotesFrame(List<Note> notes, String username) {
         this.notes = notes;
@@ -108,17 +119,22 @@ public class ViewNotesFrame extends JFrame {
 
         // Media Panel (Images and Sketches)
         JPanel mediaPanel = new JPanel(new GridLayout(2, 1, 5, 5));
+        mediaPanel.setPreferredSize(new Dimension(rightPanel.getWidth(), MEDIA_PANEL_HEIGHT));
 
         // Images Section
         JPanel imagesPanel = new JPanel(new BorderLayout());
         imagesPanel.setBorder(BorderFactory.createTitledBorder("Images"));
-        imagesPanel.add(new JScrollPane(imagesList), BorderLayout.CENTER);
+        JScrollPane imagesScroll = new JScrollPane(imagesList);
+        imagesScroll.setPreferredSize(new Dimension(0, THUMBNAILS_PANEL_HEIGHT));
+        imagesPanel.add(imagesScroll, BorderLayout.CENTER);
         imagesPanel.add(addImageButton, BorderLayout.SOUTH);
 
         // Sketches Section
         JPanel sketchesPanel = new JPanel(new BorderLayout());
         sketchesPanel.setBorder(BorderFactory.createTitledBorder("Sketches"));
-        sketchesPanel.add(new JScrollPane(sketchesList), BorderLayout.CENTER);
+        JScrollPane sketchesScroll = new JScrollPane(sketchesList);
+        sketchesScroll.setPreferredSize(new Dimension(0, THUMBNAILS_PANEL_HEIGHT));
+        sketchesPanel.add(sketchesScroll, BorderLayout.CENTER);
         sketchesPanel.add(sketchButton, BorderLayout.SOUTH);
 
         mediaPanel.add(imagesPanel);
@@ -150,7 +166,7 @@ public class ViewNotesFrame extends JFrame {
                 if (e.getClickCount() == 2) {
                     ImageIcon selected = imagesList.getSelectedValue();
                     if (selected != null) {
-                        showExpandedImage(selected);
+                        showExpandedImage(selected, imagePaths);
                     }
                 }
             }
@@ -162,7 +178,7 @@ public class ViewNotesFrame extends JFrame {
                 if (e.getClickCount() == 2) {
                     ImageIcon selected = sketchesList.getSelectedValue();
                     if (selected != null) {
-                        showExpandedImage(selected);
+                        showExpandedImage(selected, sketchPaths);
                     }
                 }
             }
@@ -179,89 +195,32 @@ public class ViewNotesFrame extends JFrame {
         addImageButton.addActionListener(e -> addImageToNote());
     }
 
-    private void showExpandedImage(ImageIcon thumbnail) {
-        String selectedTitle = notesList.getSelectedValue();
-        Note selectedNote = null;
-        for (Note note : notes) {
-            if (note.getTitle().equals(selectedTitle)) {
-                selectedNote = note;
-                break;
-            }
-        }
-
-        if (selectedNote == null) {
-            return;
-        }
-
-        // Get the image path that corresponds to this thumbnail
-        int selectedIndex = -1;
-        if (imagesList.getSelectedValue() != null) {
-            selectedIndex = imagesList.getSelectedIndex();
-        } else if (sketchesList.getSelectedValue() != null) {
-            selectedIndex = sketchesList.getSelectedIndex();
-        }
-
-        if (selectedIndex < 0) {
-            return;
-        }
-
-        String imagePath = null;
-        if (imagesList.getSelectedValue() != null && selectedIndex < selectedNote.getImagePaths().size()) {
-            imagePath = selectedNote.getImagePaths().get(selectedIndex);
-        } else if (sketchesList.getSelectedValue() != null) {
-            imagePath = selectedNote.getSketchPath();
-        }
+    private void showExpandedImage(ImageIcon thumbnail, Map<ImageIcon, String> pathsMap) {
+        String imagePath = pathsMap.get(thumbnail);
 
         if (imagePath == null) {
+            JOptionPane.showMessageDialog(this, "Cannot find image path");
             return;
         }
 
         try {
-            // First try with the path as is
             File imgFile = new File(imagePath);
-
-            // If file doesn't exist, try with user directory path
-            if (!imgFile.exists()) {
-                imgFile = new File(System.getProperty("user.dir"), imagePath);
-            }
-
-            // If still doesn't exist, try constructing from base folder
-            if (!imgFile.exists()) {
-                imgFile = new File(FileManager.BASE_FOLDER_PATH + File.separator + imagePath);
-            }
-
             if (imgFile.exists()) {
                 BufferedImage fullImage = ImageIO.read(imgFile);
                 if (fullImage != null) {
-                    JDialog dialog = new JDialog(this, "Image Viewer", true);
-                    dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-
-                    // Scale image while maintaining aspect ratio
-                    Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-                    int maxWidth = (int) (screenSize.width * 0.8);
-                    int maxHeight = (int) (screenSize.height * 0.8);
-
-                    double scale = Math.min(
-                            (double) maxWidth / fullImage.getWidth(),
-                            (double) maxHeight / fullImage.getHeight()
-                    );
-
-                    int scaledWidth = (int) (fullImage.getWidth() * scale);
-                    int scaledHeight = (int) (fullImage.getHeight() * scale);
-
-                    Image scaledImage = fullImage.getScaledInstance(
-                            scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
-
-                    JLabel imageLabel = new JLabel(new ImageIcon(scaledImage));
-                    JScrollPane scrollPane = new JScrollPane(imageLabel);
-
-                    dialog.add(scrollPane);
-                    dialog.setSize(scaledWidth + 50, scaledHeight + 50);
-                    dialog.setLocationRelativeTo(this);
-                    dialog.setVisible(true);
+                    showImageDialog(fullImage);
                 }
             } else {
-                JOptionPane.showMessageDialog(this, "Image file not found: " + imagePath);
+                // Try with BASE_FOLDER_PATH
+                imgFile = new File(FileManager.BASE_FOLDER_PATH, imagePath);
+                if (imgFile.exists()) {
+                    BufferedImage fullImage = ImageIO.read(imgFile);
+                    if (fullImage != null) {
+                        showImageDialog(fullImage);
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this, "Image file not found: " + imagePath);
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -269,14 +228,63 @@ public class ViewNotesFrame extends JFrame {
         }
     }
 
+    private void showImageDialog(BufferedImage fullImage) {
+        JDialog dialog = new JDialog(this, "Image Viewer", true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
+        // Scale image while maintaining aspect ratio
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        int maxWidth = (int) (screenSize.width * 0.8);
+        int maxHeight = (int) (screenSize.height * 0.8);
+
+        double scale = Math.min(
+                (double) maxWidth / fullImage.getWidth(),
+                (double) maxHeight / fullImage.getHeight()
+        );
+
+        int scaledWidth = (int) (fullImage.getWidth() * scale);
+        int scaledHeight = (int) (fullImage.getHeight() * scale);
+
+        Image scaledImage = fullImage.getScaledInstance(
+                scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
+
+        JLabel imageLabel = new JLabel(new ImageIcon(scaledImage));
+        JScrollPane scrollPane = new JScrollPane(imageLabel);
+
+        dialog.add(scrollPane);
+        dialog.setSize(scaledWidth + 50, scaledHeight + 50);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     private void openSketchPad() {
+        String selectedTitle = notesList.getSelectedValue();
+        if (selectedTitle == null) {
+            JOptionPane.showMessageDialog(this, "Please select a note first.");
+            return;
+        }
+
         SketchPad sketchPad = new SketchPad(username);
         sketchPad.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent e) {
-                if (sketchPad.getSavedImage() != null) {
+                if (sketchPad.getSavedImage() != null && sketchPad.getSavedSketchPath() != null) {
+                    // Create and add thumbnail
                     ImageIcon thumbnail = createThumbnail(sketchPad.getSavedImage());
                     sketchesListModel.addElement(thumbnail);
+                    
+                    // Store the path mapping using the saved relative path
+                    String sketchPath = sketchPad.getSavedSketchPath();
+                    sketchPaths.put(thumbnail, FileManager.toAbsolutePath(sketchPath));
+                    
+                    // Update the note with the new sketch path
+                    for (Note note : notes) {
+                        if (note.getTitle().equals(selectedTitle)) {
+                            note.addSketchPath(sketchPath);
+                            FileManager.updateNoteInFile(note, note, username);
+                            break;
+                        }
+                    }
                 }
             }
         });
@@ -311,31 +319,29 @@ public class ViewNotesFrame extends JFrame {
         noteTitleField.setEditable(false);
         noteContentArea.setEditable(false);
 
-        // Clear existing media
+        // Clear existing media and path mappings
         imagesListModel.clear();
         sketchesListModel.clear();
+        imagePaths.clear();
+        sketchPaths.clear();
 
-        // Load images
-        if (note.getImagePaths() != null && !note.getImagePaths().isEmpty()) {
+        // Load images with better path handling
+        if (note.getImagePaths() != null) {
             for (String imagePath : note.getImagePaths()) {
                 try {
-                    // Try different path variations
-                    File imgFile = new File(imagePath);
-                    if (!imgFile.exists()) {
-                        imgFile = new File(System.getProperty("user.dir"), imagePath);
-                    }
-                    if (!imgFile.exists()) {
-                        imgFile = new File(FileManager.BASE_FOLDER_PATH + File.separator + imagePath);
-                    }
-
-                    if (imgFile.exists()) {
-                        BufferedImage img = ImageIO.read(imgFile);
-                        if (img != null) {
-                            BufferedImage thumbnail = createHighQualityThumbnail(img);
-                            imagesListModel.addElement(new ImageIcon(thumbnail));
+                    String absolutePath = FileManager.toAbsolutePath(imagePath);
+                    if (absolutePath != null) {
+                        File imgFile = new File(absolutePath);
+                        if (imgFile.exists()) {
+                            BufferedImage img = ImageIO.read(imgFile);
+                            if (img != null) {
+                                BufferedImage thumbnail = createHighQualityThumbnail(img);
+                                ImageIcon thumbnailIcon = new ImageIcon(thumbnail);
+                                imagesListModel.addElement(thumbnailIcon);
+                                imagePaths.put(thumbnailIcon, absolutePath);
+                                System.out.println("Successfully loaded image: " + absolutePath);
+                            }
                         }
-                    } else {
-                        System.err.println("Image file not found: " + imagePath);
                     }
                 } catch (IOException e) {
                     System.err.println("Error loading image: " + imagePath);
@@ -344,29 +350,28 @@ public class ViewNotesFrame extends JFrame {
             }
         }
 
-        // Load sketch with the same path handling logic
-        if (note.getSketchPath() != null && !note.getSketchPath().isEmpty()) {
-            try {
-                File sketchFile = new File(note.getSketchPath());
-                if (!sketchFile.exists()) {
-                    sketchFile = new File(System.getProperty("user.dir"), note.getSketchPath());
-                }
-                if (!sketchFile.exists()) {
-                    sketchFile = new File(FileManager.BASE_FOLDER_PATH + File.separator + note.getSketchPath());
-                }
-
-                if (sketchFile.exists()) {
-                    BufferedImage sketch = ImageIO.read(sketchFile);
-                    if (sketch != null) {
-                        BufferedImage thumbnail = createHighQualityThumbnail(sketch);
-                        sketchesListModel.addElement(new ImageIcon(thumbnail));
+        // Load sketches with better path handling
+        if (note.getSketchPaths() != null) {
+            for (String sketchPath : note.getSketchPaths()) {
+                try {
+                    String absolutePath = FileManager.toAbsolutePath(sketchPath);
+                    if (absolutePath != null) {
+                        File sketchFile = new File(absolutePath);
+                        if (sketchFile.exists()) {
+                            BufferedImage sketch = ImageIO.read(sketchFile);
+                            if (sketch != null) {
+                                BufferedImage thumbnail = createHighQualityThumbnail(sketch);
+                                ImageIcon thumbnailIcon = new ImageIcon(thumbnail);
+                                sketchesListModel.addElement(thumbnailIcon);
+                                sketchPaths.put(thumbnailIcon, absolutePath);
+                                System.out.println("Successfully loaded sketch: " + absolutePath);
+                            }
+                        }
                     }
-                } else {
-                    System.err.println("Sketch file not found: " + note.getSketchPath());
+                } catch (IOException e) {
+                    System.err.println("Error loading sketch: " + sketchPath);
+                    e.printStackTrace();
                 }
-            } catch (IOException e) {
-                System.err.println("Error loading sketch: " + note.getSketchPath());
-                e.printStackTrace();
             }
         }
     }
@@ -393,6 +398,7 @@ public class ViewNotesFrame extends JFrame {
 
                 // Generate unique filename
                 String fileName = System.currentTimeMillis() + "_" + selectedFile.getName();
+                String relativePath = "users/" + username + "/images/" + fileName;
 
                 // Save to images directory
                 boolean saved = FileManager.saveImageToFile(username, fileName,
@@ -402,12 +408,14 @@ public class ViewNotesFrame extends JFrame {
                     // Create thumbnail
                     ImageIcon thumbnail = createThumbnail(originalImage);
                     imagesListModel.addElement(thumbnail);
+                    
+                    // Store the absolute path for viewing
+                    imagePaths.put(thumbnail, FileManager.toAbsolutePath(relativePath));
 
-                    // Update note
+                    // Update note with relative path
                     for (Note note : notes) {
                         if (note.getTitle().equals(selectedTitle)) {
-                            String imagePath = "users/" + username + "/images/" + fileName;
-                            note.getImagePaths().add(imagePath);
+                            note.addImagePath(relativePath);
                             FileManager.updateNoteInFile(note, note, username);
                             break;
                         }
@@ -476,7 +484,7 @@ public class ViewNotesFrame extends JFrame {
                     secureNote.getTitle(),
                     secureNote.getContent(),
                     secureNote.getImagePaths(),
-                    secureNote.getSketchPath(),
+                    secureNote.getSketchPaths(),
                     secureNote.getPassword()
             );
         } else {
@@ -484,12 +492,9 @@ public class ViewNotesFrame extends JFrame {
                     selectedNote.getTitle(),
                     selectedNote.getContent(),
                     selectedNote.getImagePaths(),
-                    selectedNote.getSketchPath()
+                    selectedNote.getSketchPaths()
             );
         }
-
-        System.out.println("Debug: Selected note -> Title: " + selectedTitle + ", Content: " + selectedNote.getContent());
-        System.out.println("Debug: Old note -> Title: " + oldNote.getTitle() + ", Content: " + oldNote.getContent());
 
         // If title has changed, ask if they want to update or create new
         if (!selectedTitle.equals(newTitle)) {
@@ -511,11 +516,11 @@ public class ViewNotesFrame extends JFrame {
                         newTitle,
                         newContent,
                         secureNote.getImagePaths(),
-                        secureNote.getSketchPath(),
+                        secureNote.getSketchPaths(),
                         secureNote.getPassword()
                 );
             } else {
-                updatedNote = new Note(newTitle, newContent, selectedNote.getImagePaths(), selectedNote.getSketchPath());
+                updatedNote = new Note(newTitle, newContent, selectedNote.getImagePaths(), selectedNote.getSketchPaths());
             }
 
             boolean success = FileManager.updateNoteInFile(oldNote, updatedNote, username);
@@ -538,11 +543,11 @@ public class ViewNotesFrame extends JFrame {
                         selectedTitle,
                         newContent,
                         secureNote.getImagePaths(),
-                        secureNote.getSketchPath(),
+                        secureNote.getSketchPaths(),
                         secureNote.getPassword()
                 );
             } else {
-                updatedNote = new Note(selectedTitle, newContent, selectedNote.getImagePaths(), selectedNote.getSketchPath());
+                updatedNote = new Note(selectedTitle, newContent, selectedNote.getImagePaths(), selectedNote.getSketchPaths());
             }
 
             boolean success = FileManager.updateNoteInFile(oldNote, updatedNote, username);
@@ -560,48 +565,35 @@ public class ViewNotesFrame extends JFrame {
         noteTitleField.setEditable(false);
         noteContentArea.setEditable(false);
         editButton.setText("Edit Note");
-
-        System.out.println("Debug: Save note process completed.");
     }
 
     private void createNewNote(String title, String content) {
-        // Ask if the user wants to create a secure note
         int option = JOptionPane.showConfirmDialog(this,
                 "Do you want to create this note as a secure note?",
                 "Create Secure Note",
                 JOptionPane.YES_NO_OPTION);
 
+        Note newNote;
         if (option == JOptionPane.YES_OPTION) {
-            // Secure note flow
             String password = JOptionPane.showInputDialog(this, "Enter a password for this secure note:");
-            if (password != null && !password.isEmpty()) {
-                Note newNote = new SecureNote(title, content, new ArrayList<>(), username, password);
-                notes.add(newNote);
-                notesListModel.addElement(title);
-                boolean success = FileManager.saveNewNoteToFile(newNote, username);
-                if (success) {
-                    JOptionPane.showMessageDialog(this, "New secure note saved successfully.");
-                } else {
-                    JOptionPane.showMessageDialog(this, "Error saving new secure note.");
-                }
-            } else {
+            if (password == null || password.trim().isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Password cannot be empty.");
                 return;
             }
+            newNote = new SecureNote(title, content, password);
         } else {
-            // Regular note flow
-            Note newNote = new Note(title, content, new ArrayList<>(), username);
-            notes.add(newNote);
-            notesListModel.addElement(title);
-            boolean success = FileManager.saveNewNoteToFile(newNote, username);
-            if (success) {
-                JOptionPane.showMessageDialog(this, "New note saved successfully.");
-            } else {
-                JOptionPane.showMessageDialog(this, "Error saving new note.");
-            }
+            newNote = new Note(title, content);
         }
 
-        // Disable editing after saving
+        notes.add(newNote);
+        notesListModel.addElement(title);
+        boolean success = FileManager.saveNewNoteToFile(newNote, username);
+        if (success) {
+            JOptionPane.showMessageDialog(this, "Note saved successfully.");
+        } else {
+            JOptionPane.showMessageDialog(this, "Error saving note.");
+        }
+
         noteTitleField.setEditable(false);
         noteContentArea.setEditable(false);
         editButton.setText("Edit Note");

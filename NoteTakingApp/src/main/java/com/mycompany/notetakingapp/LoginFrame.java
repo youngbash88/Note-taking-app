@@ -78,16 +78,6 @@ public class LoginFrame extends JFrame {
         Map<String, String> users = FileManager.loadUsersFromFile();
         String hashedPassword = PasswordHash.hashPassword(password);
 
-        // Debugging logs
-        System.out.println("Entered Username: " + username);
-        System.out.println("Entered Password: " + password);
-        System.out.println("Loaded Users: " + users);
-        System.out.println("Hashed Password: " + hashedPassword);
-        
-        System.out.println("Password entered during login: " + password);
-        System.out.println("Hashed during login: " + PasswordHash.hashPassword(password));
-
-
         // Check if the username exists and the hashed password matches
         if (users.containsKey(username) && users.get(username).equals(hashedPassword)) {
             new MainMenuFrame(username).setVisible(true);  // Open the main menu
